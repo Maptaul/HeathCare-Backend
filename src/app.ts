@@ -1,11 +1,13 @@
 import cookieParser from "cookie-parser";
 import cors from "cors";
 import express, {
-	type Application,
-	type Request,
-	type Response,
+  type Application,
+  NextFunction,
+  type Request,
+  type Response,
 } from "express";
 import httpStatus from "http-status";
+import { z } from "zod";
 import config from "./app/config";
 import { globalErrorHandler } from "./app/middleware/globalErrorHandler";
 import { notFound } from "./app/middleware/notFound";
@@ -14,10 +16,10 @@ import { AuthRoutes } from "./app/module/auth/auth.route";
 const app: Application = express();
 
 app.use(
-	cors({
-		origin: config.frontend_url,
-		credentials: true,
-	}),
+  cors({
+    origin: config.frontend_url,
+    credentials: true,
+  }),
 );
 
 // Enable URL-encoded form data parsing
@@ -29,12 +31,35 @@ app.use(cookieParser());
 
 app.use("/api/v1/auth", AuthRoutes);
 
+app.post("/zod", async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const userZodSchema = z.object({
+      name: z.string(),
+      email: z.email(),
+      age: z.number().optional(),
+      isVerified: z.boolean().optional(),
+      books: z.array(z.string()).optional(),
+    });
+    const payload = req.body;
+    const result = userZodSchema.parse(payload);
+    console.log(result);
+    res.status(httpStatus.OK).json({
+      success: true,
+      message: "Welcome to PH Healthcare System Backend",
+      data: result,
+    });
+  } catch (error) {
+    console.log(error);
+    next(error);
+  }
+});
+
 // Basic route
 app.get("/", async (req: Request, res: Response) => {
-	res.status(httpStatus.OK).json({
-		success: true,
-		message: "Welcome to PH Healthcare System Backend",
-	});
+  res.status(httpStatus.OK).json({
+    success: true,
+    message: "Welcome to PH Healthcare System Backend",
+  });
 });
 
 app.use(globalErrorHandler);
