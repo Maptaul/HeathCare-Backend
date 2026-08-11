@@ -1,6 +1,6 @@
 import z from "zod";
 
-export const PatientRegistrationZodSchema = z.object({
+const PatientRegistrationZodSchema = z.object({
   name: z
     .string("Not a string")
     .min(3, "Name must be at least 3 characters long")
@@ -19,3 +19,7 @@ export const PatientRegistrationZodSchema = z.object({
     })
     .optional(),
 });
+
+export const patientValidation = {
+  PatientRegistrationZodSchema,
+};

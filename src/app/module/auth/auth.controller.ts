@@ -1,16 +1,15 @@
 import type { Request, Response } from "express";
 import httpStatus from "http-status";
-import { z } from "zod";
 import { catchAsync } from "../../utils/catchAsync";
 import { sendResponse } from "../../utils/sendResponse";
 import type { IRequestUser } from "./auth.interface";
 import { AuthService } from "./auth.service";
-import { PatientRegistrationZodSchema } from "./auth.validation";
-
-
+import { patientValidation } from "./auth.validation";
 
 const registerPatient = catchAsync(async (req: Request, res: Response) => {
-  const payload = PatientRegistrationZodSchema.safeParse(req.body);
+  const payload = patientValidation.PatientRegistrationZodSchema.safeParse(
+    req.body,
+  );
 
   if (!payload.success) {
     // let errorMessage = "";
