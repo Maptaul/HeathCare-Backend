@@ -5,28 +5,19 @@ import { catchAsync } from "../../utils/catchAsync";
 import { sendResponse } from "../../utils/sendResponse";
 import type { IRequestUser } from "./auth.interface";
 import { AuthService } from "./auth.service";
+import { PatientRegistrationZodSchema } from "./auth.validation";
 
-const PatientRegistrationZodSchema = z.object({
-  name: z.string().min(3).max(10),
-  email: z.email(),
-  password: z
-    .string()
-    .min(8)
-    .regex(
-      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/,
-    ),
-  patient: z
-    .object({
-      contactNumber: z.string().optional(),
-    })
-    .optional(),
-});
+
 
 const registerPatient = catchAsync(async (req: Request, res: Response) => {
   const payload = PatientRegistrationZodSchema.safeParse(req.body);
 
   if (!payload.success) {
-    throw new Error(payload.error.message);
+    // let errorMessage = "";
+    // payload.error.issues.forEach((issue) => {
+    //   errorMessage = errorMessage.concat(" ") + issue;
+    // });
+    throw new Error(payload.error.issues[0].message);
   }
   const result = await AuthService.registerPatient(payload.data as any);
 

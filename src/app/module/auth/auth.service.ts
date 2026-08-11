@@ -19,6 +19,7 @@ import type {
 
 const registerPatient = async (payload: IRegisterPatientPayload) => {
   const { name, password, patient: patientData } = payload;
+  const patientContactNumber = patientData?.contactNumber ?? "";
 
   const email = payload.email.trim().toLowerCase();
 
@@ -41,7 +42,7 @@ const registerPatient = async (payload: IRegisterPatientPayload) => {
       status: UserStatus.ACTIVE,
       emailVerified: false,
       patient: {
-        create: { name, email, contactNumber: patientData.contactNumber || "" },
+        create: { name, email, contactNumber: patientContactNumber },
       },
     },
     omit: { password: true },
