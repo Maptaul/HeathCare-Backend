@@ -3,7 +3,7 @@ import { Role } from "../../../generated/prisma/enums";
 import { auth } from "../../middleware/checkAuth";
 import { ValidateRequest } from "../../middleware/validateRequest";
 import { AuthController } from "./auth.controller";
-import { patientValidation } from "./auth.validation";
+import { UserValidation } from "./auth.validation";
 
 const router = Router();
 
@@ -34,18 +34,22 @@ router.post(
   //   }
   // },
 
-  ValidateRequest(patientValidation.PatientRegistrationZodSchema),
+  ValidateRequest(UserValidation.PatientRegistrationZodSchema),
 
   AuthController.registerPatient,
 );
-router.post("/login",
 
-	ValidateRequest(patientValidation.LoginZodSchema),
+router.post(
+  "/login",
 
-	AuthController.loginUser);
+  ValidateRequest(UserValidation.LoginZodSchema),
+
+  AuthController.loginUser,
+);
 router.get(
   "/me",
   auth(Role.ADMIN, Role.DOCTOR, Role.PATIENT, Role.SUPER_ADMIN),
+  // validate request(UserValidation.LoginZodSchema),
   AuthController.getMe,
 );
 router.post("/refresh-token", AuthController.refreshToken);

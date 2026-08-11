@@ -31,7 +31,7 @@ const LoginZodSchema = z.object({
     ),
 });
 
-export const patientValidation = {
+export const UserValidation = {
   PatientRegistrationZodSchema,
   LoginZodSchema,
 };
