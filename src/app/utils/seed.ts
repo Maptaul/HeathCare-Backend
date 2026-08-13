@@ -49,3 +49,8 @@ export const seedSuperAdmin = async () => {
     });
   }
 };
+
+// create tester admin
+
+
+//create tester doctor
