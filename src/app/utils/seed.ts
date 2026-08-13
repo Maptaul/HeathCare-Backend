@@ -51,6 +51,87 @@ export const seedSuperAdmin = async () => {
 };
 
 // create tester admin
+export const seedTesterAdmin = async () => {
+  try {
+    const isTesterAdminExists = await prisma.user.findFirst({
+      where: {
+        email: config.tester_admin_email,
+      },
+    });
+    if (isTesterAdminExists) {
+      console.log("Tester admin already exists.");
+      return;
+    }
+    const name = config.tester_admin_name;
+    const email = config.tester_admin_email;
+    const password = config.tester_admin_password;
 
+    if (!name || !email || !password) {
+      throw new Error(
+        "Tester admin credentials are not defined in the environment variables.",
+      );
+    }
+
+    const hashedPassword = await bcrypt.hash(
+      password,
+      Number(config.bcrypt_salt_rounds),
+    );
+    const testerAdmin = await prisma.user.create({
+      data: {
+        name,
+        email,
+        password: hashedPassword,
+        role: Role.ADMIN,
+        needPasswordChange: false,
+        emailVerified: true,
+      },
+    });
+
+    console.log("Tester Admin Created : ", testerAdmin);
+  } catch (error) {
+    console.error("Error seeding tester admin:", error);
+  }
+};
 
 //create tester doctor
+export const seedTesterDoctor = async () => {
+  try {
+    const isTesterDoctorExists = await prisma.user.findFirst({
+      where: {
+        role: Role.DOCTOR,
+      },
+    });
+    if (isTesterDoctorExists) {
+      console.log("Tester doctor already exists.");
+      return;
+    }
+    const name = config.tester_doctor_name;
+    const email = config.tester_doctor_email;
+    const password = config.tester_doctor_password;
+
+    if (!name || !email || !password) {
+      throw new Error(
+        "Tester doctor credentials are not defined in the environment variables.",
+      );
+    }
+
+    const hashedPassword = await bcrypt.hash(
+      password,
+      Number(config.bcrypt_salt_rounds),
+    );
+    const testerDoctor = await prisma.user.create({
+      data: {
+        name,
+        email,
+        password: hashedPassword,
+        role: Role.DOCTOR,
+        needPasswordChange: false,
+        emailVerified: true,
+      },
+    });
+
+    console.log("Tester Doctor Created : ", testerDoctor);
+  } catch (error) {
+    console.error("Error seeding tester doctor:", error);
+  }
+};
