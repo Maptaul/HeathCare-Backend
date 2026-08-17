@@ -1,5 +1,6 @@
 import cookieParser from "cookie-parser";
 import cors from "cors";
+import crypto from "crypto";
 import express, {
   type Application,
   NextFunction,
@@ -30,12 +31,19 @@ app.use(cookieParser());
 
 app.use("/api/v1/auth", AuthRoutes);
 
-app.post("/test", async (req: Request, res: Response, next: NextFunction) => {
+app.get("/test", async (req: Request, res: Response, next: NextFunction) => {
   try {
+    const otp = crypto.randomInt(100000, 1000000); //.toString()
+    // await redisClient.set("forgot-password:otp:patient1@gmail.com", "123456", {
+    //   expiration: {
+    //     type: "EX",
+    //     value: 60,
+    //   },
+    // });
     res.status(httpStatus.OK).json({
       success: true,
       message: "Welcome to PH Healthcare System Backend",
-      data: null,
+      data: otp,
     });
   } catch (error) {
     console.log(error);

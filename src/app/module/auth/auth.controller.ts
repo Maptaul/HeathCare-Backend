@@ -19,7 +19,7 @@ const registerPatient = catchAsync(async (req: Request, res: Response) => {
   // }
 
   const payload = req.body;
-  const result = await AuthService.registerPatient(payload.data as any);
+  const result = await AuthService.registerPatient(payload as any);
 
   const { accessToken, refreshToken, user, patient } = result;
 
@@ -152,6 +152,28 @@ const googleLogin = catchAsync(async (req: Request, res: Response) => {
     },
   });
 });
+const forgotPassword = catchAsync(async (req: Request, res: Response) => {
+  const payload = req.body;
+  await AuthService.forgotPassword(payload);
+
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    success: true,
+    message: `OTP sent to email : ${payload.email}`,
+    data: {},
+  });
+});
+const resetPassword = catchAsync(async (req: Request, res: Response) => {
+  const payload = req.body;
+  await AuthService.resetPassword(payload);
+
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    success: true,
+    message: "Password reset successfully",
+    data: null,
+  });
+});
 
 export const AuthController = {
   registerPatient,
@@ -159,4 +181,6 @@ export const AuthController = {
   getMe,
   refreshToken,
   googleLogin,
+  forgotPassword,
+  resetPassword,
 };
