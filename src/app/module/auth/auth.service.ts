@@ -371,11 +371,12 @@ const forgotPassword = async (payload: IForgotPasswordPayload) => {
     process.cwd(),
     "src/app/templates/forgot-password.ejs",
   );
-  const html = await ejs.renderFile(templatePath, {
+  const templateData = {
     name: isUserExists.name,
     otp,
     expirationTime: expirationSeconds / 60,
-  });
+  };
+  const html = await ejs.renderFile(templatePath, templateData);
 
   await transporter.sendMail({
     from: config.email_sender,
@@ -437,10 +438,12 @@ const resetPassword = async (payload: IResetPasswordPayload) => {
     process.cwd(),
     "src/app/templates/reset-password-success.ejs",
   );
-  const html = await ejs.renderFile(templatePath, {
+
+  const templateData = {
     userName: isUserExists.name,
     loginUrl: `${config.frontend_url}/login`,
-  });
+  };
+  const html = await ejs.renderFile(templatePath, templateData);
   await transporter.sendMail({
     from: config.email_sender,
     to: isUserExists.email,
