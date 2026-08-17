@@ -1,7 +1,9 @@
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
+import ejs from "ejs";
 import type { TokenPayload } from "google-auth-library";
 import type { JwtPayload, SignOptions } from "jsonwebtoken";
+import path from "path";
 import {
   AuthProvider,
   Role,
@@ -357,11 +359,22 @@ const forgotPassword = async (payload: IForgotPasswordPayload) => {
 
   const otp = crypto.randomInt(100000, 1000000).toString();
   const key = `forgot-password:otp:${isUserExists.email}`;
+  const expirationSeconds = 60 * 5; // 5 minutes
   await redisClient.set(key, otp, {
     expiration: {
       type: "EX",
-      value: 60 * 5, //
+      value: expirationSeconds, //
     },
+  });
+
+  const templatePath = path.join(
+    process.cwd(),
+    "src/app/templates/forgot-password.ejs",
+  );
+  const html = await ejs.renderFile(templatePath, {
+    name: isUserExists.name,
+    otp,
+    expirationTime: expirationSeconds / 60,
   });
 
   await transporter.sendMail({
@@ -369,7 +382,8 @@ const forgotPassword = async (payload: IForgotPasswordPayload) => {
     to: isUserExists.email,
     subject: "Password Reset OTP",
     // text: `Your OTP for password reset is: ${otp}. It will expire in 5 minutes.`,
-    html: `<p>Your OTP for password reset is: <strong>${otp}</strong>. It will expire in 5 minutes.</p>`,
+    // html: `<p>Your OTP for password reset is: <strong>${otp}</strong>. It will expire in 5 minutes.</p>`,
+    html,
   });
 };
 
@@ -418,12 +432,22 @@ const resetPassword = async (payload: IResetPasswordPayload) => {
   });
 
   await redisClient.del([key]);
+
+  const templatePath = path.join(
+    process.cwd(),
+    "src/app/templates/reset-password-success.ejs",
+  );
+  const html = await ejs.renderFile(templatePath, {
+    userName: isUserExists.name,
+    loginUrl: `${config.frontend_url}/login`,
+  });
   await transporter.sendMail({
     from: config.email_sender,
     to: isUserExists.email,
     subject: "Password Reset Successful",
     // text: `Your OTP for password reset is: ${otp}. It will expire in 5 minutes.`,
-    html: `<p>Your password has been reset successfully.</p>`,
+    // html: `<p>Your password has been reset successfully.</p>`,
+    html,
   });
 };
 
