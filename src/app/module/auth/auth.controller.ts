@@ -66,7 +66,7 @@ const verifyPatientEmail = catchAsync(async (req: Request, res: Response) => {
   sendResponse(res, {
     statusCode: httpStatus.CREATED,
     success: true,
-    message: "Verification OTP sent to email successfully",
+    message: "email verified successfully",
     data: {
       accessToken,
       refreshToken,

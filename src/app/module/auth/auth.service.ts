@@ -71,13 +71,13 @@ const registerPatient = async (payload: IRegisterPatientPayload) => {
         type: "EX",
         value: expirationSeconds,
       },
-    }
+    },
   );
 
   // Send Email
   const templatePath = path.join(
     process.cwd(),
-    "src/app/templates/registration-user-otp.ejs"
+    "src/app/templates/registration-user-otp.ejs",
   );
 
   const html = await ejs.renderFile(templatePath, {
@@ -117,10 +117,7 @@ const verifyPatientEmail = async (payload: IVerifyEmailPayload) => {
     throw new Error("Email already verified. Please login.");
   }
 
-  if (
-    existingUser?.isDeleted ||
-    existingUser?.status === UserStatus.DELETED
-  ) {
+  if (existingUser?.isDeleted || existingUser?.status === UserStatus.DELETED) {
     throw new Error("User is deleted");
   }
 
@@ -144,8 +141,7 @@ const verifyPatientEmail = async (payload: IVerifyEmailPayload) => {
     throw new Error("Registration data not found");
   }
 
-  const patientPayload: IRegisterPatientPayload =
-    JSON.parse(redisPatientData);
+  const patientPayload: IRegisterPatientPayload = JSON.parse(redisPatientData);
 
   // Final duplicate protection
   const duplicateUser = await prisma.user.findUnique({
@@ -187,6 +183,24 @@ const verifyPatientEmail = async (payload: IVerifyEmailPayload) => {
 
   const { patient, ...user } = createdUser;
 
+  // Send Email
+  const templatePath = path.join(
+    process.cwd(),
+    "src/app/templates/patient-welcome-email.ejs",
+  );
+
+  const html = await ejs.renderFile(templatePath, {
+    patientName: createdUser.name,
+    loginUrl: `${config.frontend_url}/login`,
+  });
+
+  await transporter.sendMail({
+    from: config.email_sender,
+    to: email,
+    subject: "welcome to our platform",
+    html,
+  });
+
   const jwtPayload = {
     userId: user.id,
     name: user.name,
@@ -197,13 +211,13 @@ const verifyPatientEmail = async (payload: IVerifyEmailPayload) => {
   const accessToken = jwtUtils.createToken(
     jwtPayload,
     config.jwt_access_secret,
-    config.jwt_access_expires_in as SignOptions
+    config.jwt_access_expires_in as SignOptions,
   );
 
   const refreshToken = jwtUtils.createToken(
     jwtPayload,
     config.jwt_refresh_secret,
-    config.jwt_refresh_expires_in as SignOptions
+    config.jwt_refresh_expires_in as SignOptions,
   );
 
   return {
@@ -422,6 +436,23 @@ const googleLogin = async (payload: IGoogleLoginPayload) => {
             },
           },
         },
+      });
+      // Send Email
+      const templatePath = path.join(
+        process.cwd(),
+        "src/app/templates/patient-welcome-email.ejs",
+      );
+
+      const html = await ejs.renderFile(templatePath, {
+        patientName: user.name,
+        loginUrl: `${config.frontend_url}/login`,
+      });
+
+      await transporter.sendMail({
+        from: config.email_sender,
+        to: user.email,
+        subject: "welcome to our platform",
+        html,
       });
     }
   }
