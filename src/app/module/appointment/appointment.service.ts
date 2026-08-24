@@ -53,7 +53,7 @@ const bookAppointmentCallback = async (query: Record<string, any>) => {
   if (!bkashIdToken) {
     throw new Error("Failed to get bkash id token");
   }
-  const excutePaymentResponse = await fetch(
+  const executePaymentResponse = await fetch(
     `${config.bkash_base_url}/tokenized/checkout/execute`,
     {
       method: "POST",
@@ -69,8 +69,8 @@ const bookAppointmentCallback = async (query: Record<string, any>) => {
     },
   );
 
-  const excutePaymentResult = await excutePaymentResponse.json();
-  return excutePaymentResult; // Return the result of the bKash payment execution
+  const executePaymentResult = await executePaymentResponse.json();
+  return executePaymentResult; // Return the result of the bKash payment execution
 };
 
 export const AppointmentService = {
