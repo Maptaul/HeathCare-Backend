@@ -70,7 +70,29 @@ const bookAppointmentCallback = async (query: Record<string, any>) => {
   );
 
   const executePaymentResult = await executePaymentResponse.json();
-  return executePaymentResult; // Return the result of the bKash payment execution
+  if (status === "success") {
+    return {
+      transactionId: executePaymentResult.trxID,
+      redirectUrl: `${config.frontend_url}/dashboard/my-appointments?status=success`,
+    };
+  }
+  if (status === "failure") {
+    return {
+      transactionId: executePaymentResult.trxID,
+      redirectUrl: `${config.frontend_url}/dashboard/my-appointments?status=failure`,
+    };
+  }
+  if (status === "cancel") {
+    return {
+      transactionId: executePaymentResult.trxID,
+      redirectUrl: `${config.frontend_url}/dashboard/my-appointments?status=cancel`,
+    };
+  }
+
+  return {
+    executePaymentResult,
+    redirectUrl: `${config.frontend_url}/dashboard/my-appointments`,
+  };
 };
 
 export const AppointmentService = {
