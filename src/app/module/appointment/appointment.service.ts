@@ -245,5 +245,6 @@ const bookAppointmentCallback = async (query: Record<string, any>) => {
 
 export const AppointmentService = {
   bookAppointment,
+  payAppointment,
   bookAppointmentCallback,
 };
