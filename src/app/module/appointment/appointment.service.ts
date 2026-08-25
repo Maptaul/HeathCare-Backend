@@ -72,6 +72,10 @@ const bookAppointment = async (payload: any, user: RequestUser) => {
 };
 
 const bookAppointmentCallback = async (query: Record<string, any>) => {
+  console.log("CALLBACK QUERY:", query);
+  console.log("PAYMENT ID:", query.paymentID);
+  console.log("STATUS:", query.status);
+
   const transactionResult = await prisma.$transaction(async (tx) => {
     const paymentId = query.paymentID;
 
@@ -134,7 +138,7 @@ const bookAppointmentCallback = async (query: Record<string, any>) => {
     } else if (status === "failure") {
       await tx.payment.update({
         where: {
-          bkashPaymentId: executePaymentResult.paymentID,
+          bkashPaymentId: paymentId,
         },
         data: {
           status: PaymentStatus.FAILED,
@@ -147,7 +151,7 @@ const bookAppointmentCallback = async (query: Record<string, any>) => {
     } else if (status === "cancel") {
       await tx.payment.update({
         where: {
-          bkashPaymentId: executePaymentResult.paymentID,
+          bkashPaymentId: paymentId,
         },
         data: {
           status: PaymentStatus.CANCELED,
