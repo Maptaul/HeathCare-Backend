@@ -5,7 +5,12 @@ import { sendResponse } from "../../utils/sendResponse";
 import { AppointmentService } from "./appointment.service";
 
 const bookAppointment = catchAsync(async (req: Request, res: Response) => {
-  const result = await AppointmentService.bookAppointment();
+  const payload = req.body;
+  const user = req.user;
+  if (!user) {
+    throw new Error("User is not authenticated");
+  }
+  const result = await AppointmentService.bookAppointment(payload, user);
   sendResponse(res, {
     statusCode: httpStatus.OK,
     success: true,
@@ -18,7 +23,7 @@ const bookAppointmentCallback = catchAsync(
     console.log(req.query, "req.query");
     const { executePaymentResult, redirectUrl } =
       await AppointmentService.bookAppointmentCallback(req.query);
-    console.log(executePaymentResult, 'executePaymentResult');
+    console.log(executePaymentResult, "executePaymentResult");
     res.redirect(redirectUrl);
     // sendResponse(res, {
     //   statusCode: httpStatus.OK,
