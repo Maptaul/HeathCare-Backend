@@ -20,10 +20,10 @@ const bookAppointment = catchAsync(async (req: Request, res: Response) => {
 });
 const bookAppointmentCallback = catchAsync(
   async (req: Request, res: Response) => {
-    console.log(req.query, "req.query");
-    const { executePaymentResult, redirectUrl } =
-      await AppointmentService.bookAppointmentCallback(req.query);
-    console.log(executePaymentResult, "executePaymentResult");
+    const { redirectUrl } = await AppointmentService.bookAppointmentCallback(
+      req.query,
+    );
+
     res.redirect(redirectUrl);
     // sendResponse(res, {
     //   statusCode: httpStatus.OK,

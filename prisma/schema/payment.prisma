@@ -10,8 +10,8 @@ model Payment {
   merchantInvoiceNumber String         @unique //appointmentId + userId + timestamp
 
   bkashPaymentId String? @unique
-  bkashTrxId     String? @unique
-  payerReference String? @unique //user email or phone number
+  bkashTrxId     String?
+  payerReference String?
   paidAt         String?
 
   gatewayResponse Json?
