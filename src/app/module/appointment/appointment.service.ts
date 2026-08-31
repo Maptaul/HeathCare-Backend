@@ -243,8 +243,11 @@ const bookAppointmentCallback = async (query: Record<string, any>) => {
   return transactionResult; // Return the result
 };
 
+const cancelAppointment = async (payload: any) => {};
+
 export const AppointmentService = {
   bookAppointment,
   payAppointment,
   bookAppointmentCallback,
+  cancelAppointment,
 };
