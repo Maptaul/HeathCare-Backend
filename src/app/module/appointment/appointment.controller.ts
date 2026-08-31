@@ -29,7 +29,18 @@ const payAppointment = catchAsync(async (req: Request, res: Response) => {
   sendResponse(res, {
     statusCode: httpStatus.OK,
     success: true,
-    message: "Appointment paid successfully",
+    message: "Appointment initiated successfully",
+    data: result,
+  });
+});
+const cancelAppointment = catchAsync(async (req: Request, res: Response) => {
+  const payload = req.body;
+
+  const result = await AppointmentService.cancelAppointment(payload);
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    success: true,
+    message: "Appointment cancelled successfully",
     data: result,
   });
 });
@@ -53,5 +64,6 @@ const bookAppointmentCallback = catchAsync(
 export const AppointmentController = {
   bookAppointment,
   payAppointment,
+  cancelAppointment,
   bookAppointmentCallback,
 };
