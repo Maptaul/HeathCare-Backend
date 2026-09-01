@@ -6,7 +6,6 @@ import config from "../../config";
 import { getBkashIdToken } from "../../lib/bkash";
 import { prisma } from "../../lib/prisma";
 import { RequestUser } from "../../middleware/checkAuth";
-import crypto from "crypto";
 
 const bookAppointment = async (payload: any, user: RequestUser) => {
   const transactionResult = await prisma.$transaction(async (tx) => {
@@ -40,9 +39,9 @@ const bookAppointment = async (payload: any, user: RequestUser) => {
           payerReference: user.email, // Replace with actual payer reference (e.g., phone number)
           callbackURL: `${config.bkash_callback_url}/appointment/book-appointment/payment/callback`, // Replace with actual callback URL
           merchantAssociationInfo: "MI05MID54RF09123456One", // Replace with actual merchant association info
-          amount: "500", // Replace with actual amount (e.g., "500" for 500 BDT)
+          amount: "1200", // Replace with actual amount (e.g., "500" for 500 BDT)
           currency: "BDT", // Replace with actual currency (e.g., "BDT" for Bangladeshi Taka)
-          intent: "authorization", // Replace with actual intent (e.g., "authorization" or "sale")
+          intent: "sale", // Replace with actual intent (e.g., "authorization" or "sale")
           // merchantInvoiceNumber: "Inv0124", // Replace with actual merchant invoice number
           merchantInvoiceNumber: appointment.id,
         }),
@@ -117,9 +116,9 @@ const payAppointment = async (payload: any, user: RequestUser) => {
         payerReference: user.email, // Replace with actual payer reference (e.g., phone number)
         callbackURL: `${config.bkash_callback_url}/appointment/book-appointment/payment/callback`, // Replace with actual callback URL
         merchantAssociationInfo: "MI05MID54RF09123456One", // Replace with actual merchant association info
-        amount: "500", // Replace with actual amount (e.g., "500" for 500 BDT)
+        amount: "1200", // Replace with actual amount (e.g., "500" for 500 BDT)
         currency: "BDT", // Replace with actual currency (e.g., "BDT" for Bangladeshi Taka)
-        intent: "authorization", // Replace with actual intent (e.g., "authorization" or "sale")
+        intent: "sale", // Replace with actual intent (e.g., "authorization" or "sale")
         // merchantInvoiceNumber: "Inv0124", // Replace with actual merchant invoice number
         merchantInvoiceNumber: existingAppointment.id,
       }),
@@ -296,9 +295,9 @@ const cancelAppointment = async (payload: any) => {
           "x-app-key": config.bkash_app_key,
         },
         body: JSON.stringify({
-          paymentId: existingAppointment.payment?.bkashPaymentId,
-          trxId: existingAppointment.payment?.bkashTrxId,
-          refundAmount: existingAppointment.payment?.amount,
+          paymentID: existingAppointment.payment?.bkashPaymentId,
+          trxID: existingAppointment.payment?.bkashTrxId,
+          amount: existingAppointment.payment?.amount.toString(),
           sku: "APPOINTMENT_REFUND",
           reason: "patient cancelled the appointment",
         }),
@@ -312,10 +311,10 @@ const cancelAppointment = async (payload: any) => {
         appointmentId: existingAppointment.id,
       },
       data: {
-        refundTrxId: bkashRefundPaymentResult.refundTrxId,
+        refundTrxId: bkashRefundPaymentResult.refundTrxID,
         refundedAt: bkashRefundPaymentResult.completedTime,
-        refundAmount: bkashRefundPaymentResult.refundAmount,
-        refundReason: bkashRefundPaymentResult.reason,
+        refundAmount: bkashRefundPaymentResult.amount,
+        refundReason: "patient cancelled the appointment",
         status: PaymentStatus.REFUNDED,
         gatewayResponse: bkashRefundPaymentResult,
       },
