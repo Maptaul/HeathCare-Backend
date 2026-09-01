@@ -43,3 +43,9 @@ enum PaymentGateway {
   BKASH
   SSLCOMMERZ
 }
+
+enum DoctorVerificationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}

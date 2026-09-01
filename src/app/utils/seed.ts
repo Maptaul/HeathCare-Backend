@@ -96,7 +96,7 @@ export const seedTesterAdmin = async () => {
 //create tester doctor
 export const seedTesterDoctor = async () => {
   try {
-    const isTesterDoctorExists = await prisma.user.findUniqueOrThrow({
+    const isTesterDoctorExists = await prisma.user.findUnique({
       where: {
         email: config.tester_doctor_email,
       },
@@ -127,6 +127,16 @@ export const seedTesterDoctor = async () => {
         role: Role.DOCTOR,
         needPasswordChange: false,
         emailVerified: true,
+        doctor: {
+          create: {
+            email,
+            name,
+            experienceYears: 5,
+            licenseNumber: "LIC123456",
+            qualifications: "MBBS",
+            specialization: "General Medicine",
+          },
+        },
       },
     });
 
