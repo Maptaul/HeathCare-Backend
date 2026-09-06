@@ -6,6 +6,7 @@
     "scripts": {
         "dev": "tsx watch src/server.ts",
         "build": "tsup",
+        "vercel-build": "prisma generate",
         "start": "node dist/server.js",
         "test": "echo \"Error: no test specified\" && exit 1",
         "format:check": "pnpx @biomejs/biome format ./src",
