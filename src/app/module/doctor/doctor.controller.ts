@@ -55,8 +55,12 @@ const verifyDoctorEmail = catchAsync(async (req: Request, res: Response) => {
 });
 const approveDoctor = catchAsync(async (req: Request, res: Response) => {
   const payload = req.body;
+  const reviewer = req.user;
+  if (!reviewer) {
+    throw new Error("User is not authenticated");
+  }
 
-  const result = await DoctorServices.approveDoctor(payload);
+  const result = await DoctorServices.approveDoctor(payload, reviewer);
   sendResponse(res, {
     statusCode: httpStatus.OK,
     success: true,

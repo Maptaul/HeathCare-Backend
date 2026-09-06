@@ -5,8 +5,8 @@
     "main": "index.js",
     "scripts": {
         "dev": "tsx watch src/server.ts",
-        "build": "tsc",
-        "start": "node dist/src/server.js",
+        "build": "tsup",
+        "start": "node dist/server.js",
         "test": "echo \"Error: no test specified\" && exit 1",
         "format:check": "pnpx @biomejs/biome format ./src",
         "format:fix": "pnpx @biomejs/biome format --write ./src",
@@ -48,6 +48,7 @@
         "@types/nodemailer": "^8.0.1",
         "@types/pg": "^8.20.4",
         "prisma": "^7.9.1",
+        "tsup": "^8.5.1",
         "tsx": "^4.23.9",
         "typescript": "^7.0.2"
     }

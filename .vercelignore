@@ -1,0 +1,25 @@
+# Local-only pnpm settings file. It has no `packages:` field, which pnpm 11
+# (local) accepts but pnpm 9 (Vercel's build image) rejects with
+# "ERROR packages field missing or empty".
+pnpm-workspace.yaml
+
+# Only pnpm-lock.yaml should drive the install.
+package-lock.json
+
+# Secrets belong in Vercel project environment variables, never in the upload.
+.env
+.env.*
+
+# Regenerated on Vercel by the build command.
+src/generated
+
+# Local tsup output; Vercel builds its own serverless bundle from api/.
+dist
+
+node_modules
+.git
+.vercel
+
+# Docs
+Project Requirements.md
+README.md
