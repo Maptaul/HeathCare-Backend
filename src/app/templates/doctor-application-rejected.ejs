@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>Doctor Application Update</title>
+	</head>
+	<body style="margin: 0; background-color: #f4f7fb; font-family: Arial, sans-serif; color: #1f2937;">
+		<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="padding: 32px 16px;">
+			<tr>
+				<td align="center">
+					<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width: 600px; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 16px rgba(15, 23, 42, 0.08);">
+						<tr>
+							<td style="background: #0f766e; padding: 28px 32px; text-align: center;">
+								<h1 style="margin: 0; color: #ffffff; font-size: 24px;">Healthcare</h1>
+							</td>
+						</tr>
+						<tr>
+							<td style="padding: 36px 32px;">
+								<h2 style="margin: 0 0 20px; color: #111827; font-size: 22px;">Doctor application update</h2>
+								<p style="margin: 0 0 16px; line-height: 1.6;">Hello <%= name || 'Doctor' %>,</p>
+								<p style="margin: 0 0 16px; line-height: 1.6;">
+									Thank you for your interest in joining our healthcare platform. After carefully reviewing your application, we are unable to approve it at this time.
+								</p>
+								<% if (reason) { %>
+									<div style="margin: 24px 0; padding: 16px; border-left: 4px solid #ef4444; background: #fef2f2; color: #7f1d1d;">
+										<strong>Reason:</strong><br />
+										<%= reason %>
+									</div>
+								<% } %>
+								<p style="margin: 0 0 16px; line-height: 1.6;">You may review your information and contact our support team if you believe this decision was made in error.</p>
+								<p style="margin: 24px 0 0; line-height: 1.6;">Regards,<br /><strong>The Healthcare Team</strong></p>
+							</td>
+						</tr>
+						<tr>
+							<td style="padding: 20px 32px; background: #f8fafc; text-align: center; color: #64748b; font-size: 12px;">
+								This is an automated message. Please do not reply directly to this email.
+							</td>
+						</tr>
+					</table>
+				</td>
+			</tr>
+		</table>
+	</body>
+</html>

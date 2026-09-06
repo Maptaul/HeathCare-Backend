@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>Doctor Application Approved</title>
+	</head>
+	<body style="margin:0; padding:0; background:#f4f7fb; font-family:Arial,Helvetica,sans-serif; color:#243447;">
+		<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#f4f7fb; padding:32px 16px;">
+			<tr>
+				<td align="center">
+					<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:620px; background:#ffffff; border-radius:16px; overflow:hidden; box-shadow:0 8px 28px rgba(31,55,80,.08);">
+						<tr>
+							<td style="background:#0f766e; padding:28px 36px; text-align:center;">
+								<div style="font-size:25px; font-weight:700; color:#ffffff;">Healthcare</div>
+								<div style="margin-top:8px; font-size:13px; color:#d8fffa;">Trusted care. Better connections.</div>
+							</td>
+						</tr>
+						<tr>
+							<td style="padding:42px 40px 36px;">
+								<div style="display:inline-block; padding:8px 14px; border-radius:20px; background:#e6fffa; color:#0f766e; font-size:12px; font-weight:700; letter-spacing:.4px; text-transform:uppercase;">Application approved</div>
+								<h1 style="margin:22px 0 14px; color:#16324f; font-size:28px; line-height:1.25;">Welcome to our medical community!</h1>
+								<p style="margin:0 0 18px; font-size:16px; line-height:1.7;">Hello <%= typeof doctorName !== 'undefined' ? doctorName : 'Doctor' %>,</p>
+								<p style="margin:0 0 18px; font-size:16px; line-height:1.7;">We are pleased to let you know that your doctor application has been reviewed and <strong style="color:#0f766e;">approved</strong>.</p>
+								<p style="margin:0 0 28px; font-size:16px; line-height:1.7;">You can now sign in to complete your profile, manage appointments, and start connecting with patients.</p>
+								<table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin:0 auto 30px;">
+									<tr>
+										<td align="center" style="border-radius:8px; background:#0f766e;">
+											<a href="<%= typeof loginUrl !== 'undefined' ? loginUrl : '#' %>" style="display:inline-block; padding:14px 28px; border-radius:8px; color:#ffffff; font-size:15px; font-weight:700; text-decoration:none;">Access your account</a>
+										</td>
+									</tr>
+								</table>
+								<p style="margin:0; font-size:14px; line-height:1.7; color:#65758b;">If you have any questions, please contact our support team. We look forward to having you with us.</p>
+								<p style="margin:26px 0 0; font-size:15px; line-height:1.7;">Best regards,<br /><strong>The Healthcare Team</strong></p>
+							</td>
+						</tr>
+						<tr>
+							<td style="padding:20px 36px; background:#f8fafc; text-align:center; color:#8291a5; font-size:12px; line-height:1.6;">
+								This is an automated message. Please do not reply directly to this email.<br />&copy; <%= new Date().getFullYear() %> Healthcare. All rights reserved.
+							</td>
+						</tr>
+					</table>
+				</td>
+			</tr>
+		</table>
+	</body>
+</html>

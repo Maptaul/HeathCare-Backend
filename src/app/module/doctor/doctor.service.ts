@@ -227,6 +227,27 @@ const approveDoctor = async (
       reviewedAt: new Date(),
     },
   });
+
+  const isApproved = verificationStatus === DoctorVerificationStatus.APPROVED;
+  const templatePath = path.join(
+    process.cwd(),
+    `src/app/templates/${isApproved ? "doctor-application-approved.ejs" : "doctor-application-rejected.ejs"}`,
+  );
+
+  const templateData = {
+    name: updatedDoctor.name,
+    reason: updatedDoctor.rejectionReason,
+  };
+
+  const html = await ejs.renderFile(templatePath, templateData);
+
+  await transporter.sendMail({
+    from: config.email_sender,
+    to: updatedDoctor.email,
+    subject: `Doctor Application ${isApproved ? "Your Application Has Been Approved" : "Your Application Has Been Rejected"}`,
+    html,
+  });
+
   return updatedDoctor;
 };
 
