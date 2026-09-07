@@ -45,7 +45,7 @@ app.get("/test", async (req: Request, res: Response, next: NextFunction) => {
 
     res.status(httpStatus.OK).json({
       success: true,
-      message: "Welcome to PH Healthcare System Backend",
+      message: "Welcome to Healthcare System Backend",
       data: null,
     });
   } catch (error) {
