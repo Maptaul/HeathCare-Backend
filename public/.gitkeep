@@ -1,0 +1,1 @@
+Placeholder so Vercel's Output Directory check passes; all requests are routed to /api/index by vercel.json rewrites, so nothing here is ever actually served.

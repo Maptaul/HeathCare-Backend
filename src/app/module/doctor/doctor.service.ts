@@ -6,18 +6,18 @@ import path from "path";
 import {
   DoctorVerificationStatus,
   Role,
-} from "../../../generated/prisma/client";
-import config from "../../config";
-import { cloudinary } from "../../lib/cloudinary";
-import { transporter } from "../../lib/nodemailer";
-import { prisma } from "../../lib/prisma";
-import { redisClient } from "../../lib/redis";
-import { RequestUser } from "../../middleware/checkAuth";
+} from "../../../generated/prisma/client.js";
+import config from "../../config/index.js";
+import { cloudinary } from "../../lib/cloudinary.js";
+import { transporter } from "../../lib/nodemailer.js";
+import { prisma } from "../../lib/prisma.js";
+import { redisClient } from "../../lib/redis.js";
+import { RequestUser } from "../../middleware/checkAuth.js";
 import {
   IApplyAsDoctorPayload,
   IApproveDoctorPayload,
   IVerifyDoctorEmailPayload,
-} from "./doctor.interface";
+} from "./doctor.interface.js";
 
 const applyAsDoctor = async (
   payload: IApplyAsDoctorPayload,

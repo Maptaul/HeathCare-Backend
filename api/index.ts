@@ -1,8 +1,8 @@
 import type { Request, Response } from "express";
 import httpStatus from "http-status";
-import app from "../src/app";
-import { prisma } from "../src/app/lib/prisma";
-import { redisClient } from "../src/app/lib/redis";
+import app from "../src/expressApp.js";
+import { prisma } from "../src/app/lib/prisma.js";
+import { redisClient } from "../src/app/lib/redis.js";
 
 // Runs once per warm serverless instance; a failed attempt is retried on the next request.
 let initPromise: Promise<void> | null = null;

@@ -1,4 +1,4 @@
-import { DoctorVerificationStatus } from "../../../generated/prisma/enums";
+import { DoctorVerificationStatus } from "../../../generated/prisma/enums.js";
 
 export interface IApplyAsDoctorPayload {
   user: {

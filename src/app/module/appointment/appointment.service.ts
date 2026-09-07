@@ -1,11 +1,11 @@
 import {
   AppointmentStatus,
   PaymentStatus,
-} from "../../../generated/prisma/enums";
-import config from "../../config";
-import { getBkashIdToken } from "../../lib/bkash";
-import { prisma } from "../../lib/prisma";
-import { RequestUser } from "../../middleware/checkAuth";
+} from "../../../generated/prisma/enums.js";
+import config from "../../config/index.js";
+import { getBkashIdToken } from "../../lib/bkash.js";
+import { prisma } from "../../lib/prisma.js";
+import { RequestUser } from "../../middleware/checkAuth.js";
 
 const bookAppointment = async (payload: any, user: RequestUser) => {
   const transactionResult = await prisma.$transaction(async (tx) => {

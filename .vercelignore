@@ -16,10 +16,6 @@ src/generated
 # Local tsup output; Vercel builds its own serverless bundle from api/.
 dist
 
-# Empty/unused locally; its presence makes Vercel's zero-config detection
-# treat it as the static Output Directory, which then fails because it's empty.
-public
-
 node_modules
 .git
 .vercel

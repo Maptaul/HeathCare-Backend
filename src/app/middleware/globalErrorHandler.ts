@@ -1,7 +1,7 @@
 import type { NextFunction, Request, Response } from "express";
 import httpStatus from "http-status";
-import { Prisma } from "../../generated/prisma/client";
-import config from "../config";
+import { Prisma } from "../../generated/prisma/client.js";
+import config from "../config/index.js";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const globalErrorHandler = async (

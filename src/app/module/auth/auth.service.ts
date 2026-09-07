@@ -8,13 +8,13 @@ import {
   AuthProvider,
   Role,
   UserStatus,
-} from "../../../generated/prisma/enums";
-import config from "../../config";
-import { googleClient } from "../../lib/googleAuth";
-import { transporter } from "../../lib/nodemailer";
-import { prisma } from "../../lib/prisma";
-import { redisClient } from "../../lib/redis";
-import { jwtUtils } from "../../utils/jwt";
+} from "../../../generated/prisma/enums.js";
+import config from "../../config/index.js";
+import { googleClient } from "../../lib/googleAuth.js";
+import { transporter } from "../../lib/nodemailer.js";
+import { prisma } from "../../lib/prisma.js";
+import { redisClient } from "../../lib/redis.js";
+import { jwtUtils } from "../../utils/jwt.js";
 import type {
   IForgotPasswordPayload,
   IGoogleLoginPayload,
@@ -23,7 +23,7 @@ import type {
   IRequestUser,
   IResetPasswordPayload,
   IVerifyEmailPayload,
-} from "./auth.interface";
+} from "./auth.interface.js";
 
 const registerPatient = async (payload: IRegisterPatientPayload) => {
   const { name, password, patient: patientData } = payload;

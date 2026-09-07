@@ -7,14 +7,14 @@ import express, {
   type Response,
 } from "express";
 import httpStatus from "http-status";
-import config from "./app/config";
-import { getBkashIdToken } from "./app/lib/bkash";
-import { globalErrorHandler } from "./app/middleware/globalErrorHandler";
-import { notFound } from "./app/middleware/notFound";
-import { AppointmentRoutes } from "./app/module/appointment/appointment.route";
-import { AuthRoutes } from "./app/module/auth/auth.route";
-import { DoctorRoutes } from "./app/module/doctor/doctor.route";
-import { UserRoutes } from "./app/module/user/user.route";
+import config from "./app/config/index.js";
+import { getBkashIdToken } from "./app/lib/bkash.js";
+import { globalErrorHandler } from "./app/middleware/globalErrorHandler.js";
+import { notFound } from "./app/middleware/notFound.js";
+import { AppointmentRoutes } from "./app/module/appointment/appointment.route.js";
+import { AuthRoutes } from "./app/module/auth/auth.route.js";
+import { DoctorRoutes } from "./app/module/doctor/doctor.route.js";
+import { UserRoutes } from "./app/module/user/user.route.js";
 
 const app: Application = express();
 
@@ -58,7 +58,13 @@ app.get("/test", async (req: Request, res: Response, next: NextFunction) => {
 app.get("/", async (req: Request, res: Response) => {
   res.status(httpStatus.OK).json({
     success: true,
-    message: "Welcome to PH Healthcare System Backend",
+    statusCode: httpStatus.OK,
+    message: "Welcome to Healthcare System Backend API",
+    data: {
+      name: "MessMate",
+      description: "Smart Healthcare System",
+      version: "v1",
+    },
   });
 });
 

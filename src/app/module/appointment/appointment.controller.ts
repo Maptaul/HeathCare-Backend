@@ -1,8 +1,8 @@
 import { Request, Response } from "express";
 import httpStatus from "http-status";
-import { catchAsync } from "../../utils/catchAsync";
-import { sendResponse } from "../../utils/sendResponse";
-import { AppointmentService } from "./appointment.service";
+import { catchAsync } from "../../utils/catchAsync.js";
+import { sendResponse } from "../../utils/sendResponse.js";
+import { AppointmentService } from "./appointment.service.js";
 
 const bookAppointment = catchAsync(async (req: Request, res: Response) => {
   const payload = req.body;
