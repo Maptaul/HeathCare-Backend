@@ -61,7 +61,7 @@ app.get("/", async (req: Request, res: Response) => {
     statusCode: httpStatus.OK,
     message: "Welcome to Healthcare System Backend API",
     data: {
-      name: "MessMate",
+      name: "PH Healthcare",
       description: "Smart Healthcare System",
       version: "v1",
     },

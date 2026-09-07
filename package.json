@@ -1,13 +1,13 @@
 {
-    "name": "project-ph-healthcare-system-backend",
+    "name": "healthcare-system-backend",
     "version": "1.0.0",
     "description": "",
-    "main": "index.js",
+    "main": "src/server.ts",
     "scripts": {
         "dev": "tsx watch src/server.ts",
-        "build": "tsup",
-        "vercel-build": "prisma generate",
-        "start": "node dist/server.js",
+        "build": "prisma generate && tsup",
+        "start": "tsx src/server.ts",
+        "postinstall": "prisma generate",
         "test": "echo \"Error: no test specified\" && exit 1",
         "format:check": "pnpx @biomejs/biome format ./src",
         "format:fix": "pnpx @biomejs/biome format --write ./src",

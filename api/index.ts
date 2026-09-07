@@ -1,6 +1,6 @@
 import type { Request, Response } from "express";
 import httpStatus from "http-status";
-import app from "../src/expressApp.js";
+import app from "../src/app.js";
 import { prisma } from "../src/app/lib/prisma.js";
 import { redisClient } from "../src/app/lib/redis.js";
 
@@ -14,7 +14,10 @@ const init = async (): Promise<void> => {
   }
 };
 
-export default async function handler(req: Request, res: Response): Promise<void> {
+export default async function handler(
+  req: Request,
+  res: Response,
+): Promise<void> {
   if (!initPromise) {
     initPromise = init().catch((error: unknown) => {
       initPromise = null;

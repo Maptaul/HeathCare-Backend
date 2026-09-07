@@ -1,4 +1,4 @@
-import app from "./expressApp.js";
+import app from "./app.js";
 import config from "./app/config/index.js";
 import { transporter } from "./app/lib/nodemailer.js";
 import { prisma } from "./app/lib/prisma.js";
