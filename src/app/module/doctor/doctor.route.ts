@@ -1,8 +1,8 @@
 import { Router } from "express";
-import { upload } from "../../lib/multer.js";
-import { DoctorController } from "./doctor.controller.js";
-import { auth } from "../../middleware/checkAuth.js";
 import { Role } from "../../../generated/prisma/enums.js";
+import { upload } from "../../lib/multer.js";
+import { auth } from "../../middleware/checkAuth.js";
+import { DoctorController } from "./doctor.controller.js";
 
 const router = Router();
 
@@ -21,6 +21,12 @@ router.post(
   "/approve-doctor",
   auth(Role.ADMIN, Role.SUPER_ADMIN),
   DoctorController.approveDoctor,
+);
+
+router.get(
+  "/all-doctors",
+  auth(Role.ADMIN, Role.SUPER_ADMIN),
+  DoctorController.getAllDoctors,
 );
 
 export const DoctorRoutes = router;
