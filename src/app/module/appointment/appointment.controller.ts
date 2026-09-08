@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import httpStatus from "http-status";
+import { AppError } from "../../utils/appError.js";
 import { catchAsync } from "../../utils/catchAsync.js";
 import { sendResponse } from "../../utils/sendResponse.js";
 import { AppointmentService } from "./appointment.service.js";
@@ -8,7 +9,7 @@ const bookAppointment = catchAsync(async (req: Request, res: Response) => {
   const payload = req.body;
   const user = req.user;
   if (!user) {
-    throw new Error("User is not authenticated");
+    throw new AppError(httpStatus.UNAUTHORIZED, "User is not authenticated", "");
   }
   const result = await AppointmentService.bookAppointment(payload, user);
   sendResponse(res, {
@@ -23,7 +24,7 @@ const payAppointment = catchAsync(async (req: Request, res: Response) => {
   const payload = req.body;
   const user = req.user;
   if (!user) {
-    throw new Error("User is not authenticated");
+    throw new AppError(httpStatus.UNAUTHORIZED, "User is not authenticated", "");
   }
   const result = await AppointmentService.payAppointment(payload, user);
   sendResponse(res, {

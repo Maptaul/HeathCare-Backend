@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import httpStatus from "http-status";
+import { AppError } from "../../utils/appError.js";
 import { catchAsync } from "../../utils/catchAsync.js";
 import { sendResponse } from "../../utils/sendResponse.js";
 import { DoctorServices } from "./doctor.service.js";
@@ -16,7 +17,7 @@ const ApplyAsDoctor = catchAsync(async (req: Request, res: Response) => {
     JSON.parse(req.body.data),
   );
   if (!zodValidationResult.success) {
-    throw new Error("Validation failed");
+    throw new AppError(httpStatus.BAD_REQUEST, "Validation failed", "");
   }
 
   const payload = zodValidationResult.data;
@@ -57,7 +58,7 @@ const approveDoctor = catchAsync(async (req: Request, res: Response) => {
   const payload = req.body;
   const reviewer = req.user!;
   if (!reviewer) {
-    throw new Error("User is not authenticated");
+    throw new AppError(httpStatus.UNAUTHORIZED, "User is not authenticated", "");
   }
 
   const result = await DoctorServices.approveDoctor(payload, reviewer);

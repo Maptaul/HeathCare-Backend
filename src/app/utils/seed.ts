@@ -1,7 +1,9 @@
 import bcrypt from "bcryptjs";
+import httpStatus from "http-status";
 import { Role } from "../../generated/prisma/enums.js";
 import config from "../config/index.js";
 import { prisma } from "../lib/prisma.js";
+import { AppError } from "./appError.js";
 
 export const seedSuperAdmin = async () => {
   try {
@@ -19,8 +21,10 @@ export const seedSuperAdmin = async () => {
     const password = config.super_admin_password;
 
     if (!name || !email || !password) {
-      throw new Error(
+      throw new AppError(
+        httpStatus.INTERNAL_SERVER_ERROR,
         "Super admin credentials are not defined in the environment variables.",
+        "",
       );
     }
 
@@ -67,8 +71,10 @@ export const seedTesterAdmin = async () => {
     const password = config.tester_admin_password;
 
     if (!name || !email || !password) {
-      throw new Error(
+      throw new AppError(
+        httpStatus.INTERNAL_SERVER_ERROR,
         "Tester admin credentials are not defined in the environment variables.",
+        "",
       );
     }
 
@@ -110,8 +116,10 @@ export const seedTesterDoctor = async () => {
     const password = config.tester_doctor_password;
 
     if (!name || !email || !password) {
-      throw new Error(
+      throw new AppError(
+        httpStatus.INTERNAL_SERVER_ERROR,
         "Tester doctor credentials are not defined in the environment variables.",
+        "",
       );
     }
 
