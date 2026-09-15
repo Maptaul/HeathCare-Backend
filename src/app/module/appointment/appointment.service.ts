@@ -1,5 +1,8 @@
 import { addMinutes, isBefore, isSameDay } from "date-fns";
+import ejs from "ejs";
 import httpStatus from "http-status";
+import path from "path";
+import PDFDocument from "pdfkit";
 import {
   AppointmentStatus,
   PaymentStatus,
@@ -7,6 +10,7 @@ import {
 } from "../../../generated/prisma/enums.js";
 import config from "../../config/index.js";
 import { getBkashIdToken } from "../../lib/bkash.js";
+import { transporter } from "../../lib/nodemailer.js";
 import { prisma } from "../../lib/prisma.js";
 import { RequestUser } from "../../middleware/checkAuth.js";
 import { AppError } from "../../utils/appError.js";
@@ -340,13 +344,14 @@ const bookAppointmentCallback = async (query: Record<string, any>) => {
         },
         include: {
           schedule: true,
+          patient: true,
+          doctor: true,
         },
       });
 
       if (!appointment) {
         throw new AppError(httpStatus.NOT_FOUND, "Appointment not found", "");
       }
-
 
       // total slot = 3, available slot = 3
       // (total - available) +1
@@ -374,7 +379,7 @@ const bookAppointmentCallback = async (query: Record<string, any>) => {
         },
       });
 
-       const newAvailableSlots = appointment.schedule.availableSlots - 1;
+      const newAvailableSlots = appointment.schedule.availableSlots - 1;
 
       await prisma.schedule.update({
         where: {
@@ -396,6 +401,95 @@ const bookAppointmentCallback = async (query: Record<string, any>) => {
           paidAt: executePaymentResult.paymentExecuteTime,
           gatewayResponse: executePaymentResult,
         },
+      });
+
+      //pdf generation and email sending logic
+
+      const pdfDocument = new PDFDocument({
+        margin: 50,
+      });
+
+      const pdfChunks: Buffer[] = [];
+      pdfDocument.on("data", (chunk: Buffer) => {
+        pdfChunks.push(chunk);
+      });
+
+      const pdfReadyPromise = new Promise<Buffer>((resolve, reject) => {
+        pdfDocument.on("end", () => {
+          const pdfBuffer = Buffer.concat(pdfChunks);
+          resolve(pdfBuffer);
+        });
+      });
+
+      pdfDocument
+        .fontSize(20)
+        .text("Appointment Confirmation", { align: "center" });
+      pdfDocument.moveDown();
+      pdfDocument
+        .fontSize(14)
+        .text(`Patient Name: ${appointment.patient.name}`);
+      pdfDocument
+        .fontSize(14)
+        .text(`Patient Email: ${appointment.patient.email}`);
+
+      pdfDocument.moveDown(2);
+
+      pdfDocument.fontSize(14).text(`Doctor Name: ${appointment.doctor.name}`);
+      pdfDocument
+        .fontSize(14)
+        .text(`Doctor Email: ${appointment.doctor.email}`);
+
+      pdfDocument.moveDown(2);
+      pdfDocument.text(
+        `Schedule Date: ${appointment.schedule.startDateTime.toDateString()}`,
+      );
+
+      pdfDocument.moveDown(2);
+      pdfDocument.text(`Joining Time: ${appointment.joiningTime}`);
+      pdfDocument.text(`Serial Number: ${appointment.serialNumber}`);
+      pdfDocument.text(`Meeting Link: ${appointment.schedule.meetingLink}`);
+
+      pdfDocument.moveDown();
+      pdfDocument.text(`Amount Paid: ${executePaymentResult.amount} BDT`);
+      pdfDocument.text(`Payment Method: bKash`);
+      pdfDocument.text(`Transaction ID: ${executePaymentResult.trxID}`);
+      pdfDocument.text(`Paid At: ${executePaymentResult.paymentExecuteTime}`);
+
+      pdfDocument.end();
+
+      const pdfBuffer = await pdfReadyPromise;
+
+      const templatePath = path.join(
+        process.cwd(),
+        "src/app/templates/appointment-confirmation.ejs",
+      );
+      const templateData = {
+        patientName: appointment.patient.name,
+        patientEmail: appointment.patient.email,
+        doctorName: appointment.doctor.name,
+        doctorEmail: appointment.doctor.email,
+        scheduleDate: appointment.schedule.startDateTime.toDateString(),
+        joiningTime: appointment.joiningTime,
+        serialNumber: appointment.serialNumber,
+        meetingLink: appointment.schedule.meetingLink,
+        amount: executePaymentResult.amount,
+        paymentMethod: "bKash",
+        transactionID: executePaymentResult.trxID,
+        paidAt: executePaymentResult.paymentExecuteTime,
+      };
+      const html = await ejs.renderFile(templatePath, templateData);
+
+      await transporter.sendMail({
+        from: config.email_sender,
+        to: appointment.patient.email,
+        subject: "Your New Appointment Booked",
+        html,
+        attachments: [
+          {
+            filename: "appointment-confirmation.pdf",
+            content: pdfBuffer,
+          },
+        ],
       });
 
       return {
