@@ -1,21 +1,141 @@
+import { isBefore, isSameDay } from "date-fns";
 import httpStatus from "http-status";
 import {
   AppointmentStatus,
   PaymentStatus,
+  ScheduleStatus,
 } from "../../../generated/prisma/enums.js";
 import config from "../../config/index.js";
 import { getBkashIdToken } from "../../lib/bkash.js";
 import { prisma } from "../../lib/prisma.js";
 import { RequestUser } from "../../middleware/checkAuth.js";
 import { AppError } from "../../utils/appError.js";
+import { IBookAppointmentPayload } from "./appointment.interface.js";
 
-const bookAppointment = async (payload: any, user: RequestUser) => {
+const bookAppointment = async (
+  payload: IBookAppointmentPayload,
+  user: RequestUser,
+) => {
   const transactionResult = await prisma.$transaction(async (tx) => {
     // business logic for booking an appointment would go here
+    const patient = await prisma.patient.findUnique({
+      where: {
+        userId: user.userId,
+      },
+    });
+    if (!patient) {
+      throw new AppError(
+        httpStatus.NOT_FOUND,
+        "Patient not found for the user",
+        "",
+      );
+    }
+
+    const schedule = await prisma.schedule.findUnique({
+      where: { id: payload.scheduleId },
+      include: { doctor: true },
+    });
+    if (!schedule || schedule.isDeleted) {
+      throw new AppError(httpStatus.NOT_FOUND, "Schedule not found", "");
+    }
+
+    if (schedule.status !== ScheduleStatus.PUBLISHED) {
+      throw new AppError(
+        httpStatus.BAD_REQUEST,
+        "Schedule is not published",
+        "",
+      );
+    }
+
+    const now = new Date();
+    if (!isSameDay(now, schedule.startDateTime)) {
+      throw new AppError(
+        httpStatus.BAD_REQUEST,
+        "Cannot book an appointment for a schedule that is not on the same day",
+        "",
+      );
+    }
+
+    if (!isBefore(now, schedule.startDateTime)) {
+      throw new AppError(
+        httpStatus.BAD_REQUEST,
+        "Cannot book an appointment for a schedule that has already started",
+        "",
+      );
+    }
+    // if (isAfter(now, schedule.startDateTime)) {
+    //   throw new AppError(
+    //     httpStatus.BAD_REQUEST,
+    //     "Cannot book an appointment for a schedule that has already started",
+    //     "",
+    //   );
+    // }
+
+    const existingAppointment = await prisma.appointment.findFirst({
+      where: {
+        scheduleId: payload.scheduleId,
+        patientId: patient.id,
+        // status: {
+        //   not: AppointmentStatus.CANCELLED,
+        // },
+      },
+    });
+
+    if (existingAppointment?.status === AppointmentStatus.PENDING) {
+      throw new AppError(
+        httpStatus.BAD_REQUEST,
+        "You have already booked an appointment for this schedule",
+        "",
+      );
+    }
+    if (existingAppointment?.status === AppointmentStatus.CONFIRMED) {
+      throw new AppError(
+        httpStatus.BAD_REQUEST,
+        "You have already booked an appointment for this schedule and it is confirmed",
+        "",
+      );
+    }
+    if (existingAppointment?.status === AppointmentStatus.ONGOING) {
+      throw new AppError(
+        httpStatus.BAD_REQUEST,
+        "You have already booked an appointment for this schedule and it is ongoing",
+        "",
+      );
+    }
+    if (existingAppointment?.status === AppointmentStatus.COMPLETED) {
+      throw new AppError(
+        httpStatus.BAD_REQUEST,
+        "You have already booked an appointment for this schedule and it is completed",
+        "",
+      );
+    }
+
+    if (schedule.availableSlots === 0) {
+      throw new AppError(
+        httpStatus.BAD_REQUEST,
+        "No available slots for this schedule",
+        "",
+      );
+    }
+
+    if (!schedule.doctor.consultationFee) {
+      throw new AppError(
+        httpStatus.BAD_REQUEST,
+        "Doctor's consultation fee is not set",
+        "",
+      );
+    }
+
+    const amount = schedule.doctor.consultationFee;
+    
 
     const appointment = await tx.appointment.create({
       data: {
         status: AppointmentStatus.PENDING,
+        patientId: patient.id,
+        doctorId: schedule.doctorId,
+        scheduleId: schedule.id,
+
       },
     });
 
