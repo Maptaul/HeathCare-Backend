@@ -1,4 +1,4 @@
-import { isBefore, isSameDay } from "date-fns";
+import { addMinutes, isBefore, isSameDay } from "date-fns";
 import httpStatus from "http-status";
 import {
   AppointmentStatus,
@@ -126,8 +126,7 @@ const bookAppointment = async (
       );
     }
 
-    const amount = schedule.doctor.consultationFee;
-    
+    const amount = schedule.doctor.consultationFee.toString();
 
     const appointment = await tx.appointment.create({
       data: {
@@ -135,7 +134,7 @@ const bookAppointment = async (
         patientId: patient.id,
         doctorId: schedule.doctorId,
         scheduleId: schedule.id,
-
+        amount: amount,
       },
     });
 
@@ -165,7 +164,7 @@ const bookAppointment = async (
           payerReference: user.email, // Replace with actual payer reference (e.g., phone number)
           callbackURL: `${config.bkash_callback_url}/appointment/book-appointment/payment/callback`, // Replace with actual callback URL
           merchantAssociationInfo: "MI05MID54RF09123456One", // Replace with actual merchant association info
-          amount: "1200", // Replace with actual amount (e.g., "500" for 500 BDT)
+          amount: amount, // Replace with actual amount (e.g., "500" for 500 BDT)
           currency: "BDT", // Replace with actual currency (e.g., "BDT" for Bangladeshi Taka)
           intent: "sale", // Replace with actual intent (e.g., "authorization" or "sale")
           // merchantInvoiceNumber: "Inv0124", // Replace with actual merchant invoice number
@@ -182,7 +181,7 @@ const bookAppointment = async (
       data: {
         merchantInvoiceNumber: bkashCreatePaymentResult.merchantInvoiceNumber,
         appointmentId: appointment.id,
-        amount: "1200",
+        amount: amount,
         gatewayResponse: bkashCreatePaymentResult,
         bkashPaymentId: bkashCreatePaymentResult.paymentID,
         payerReference: user.email,
@@ -202,6 +201,13 @@ const payAppointment = async (payload: any, user: RequestUser) => {
   const existingAppointment = await prisma.appointment.findUnique({
     where: {
       id: appointmentId,
+    },
+    include: {
+      schedule: {
+        include: {
+          doctor: true,
+        },
+      },
     },
   });
   if (!existingAppointment) {
@@ -224,6 +230,16 @@ const payAppointment = async (payload: any, user: RequestUser) => {
   //     `Appointment cannot be paid as it is ${appointmentStatus.toLowerCase}`,
   //   );
   // }
+
+  if (!existingAppointment.schedule.doctor.consultationFee) {
+    throw new AppError(
+      httpStatus.BAD_REQUEST,
+      "Doctor's consultation fee is not set",
+      "",
+    );
+  }
+
+  const amount = existingAppointment.schedule.doctor.consultationFee.toString();
   const bkashIdToken = await getBkashIdToken();
   if (!bkashIdToken) {
     throw new AppError(
@@ -250,7 +266,7 @@ const payAppointment = async (payload: any, user: RequestUser) => {
         payerReference: user.email, // Replace with actual payer reference (e.g., phone number)
         callbackURL: `${config.bkash_callback_url}/appointment/book-appointment/payment/callback`, // Replace with actual callback URL
         merchantAssociationInfo: "MI05MID54RF09123456One", // Replace with actual merchant association info
-        amount: "1200", // Replace with actual amount (e.g., "500" for 500 BDT)
+        amount: amount, // Replace with actual amount (e.g., "500" for 500 BDT)
         currency: "BDT", // Replace with actual currency (e.g., "BDT" for Bangladeshi Taka)
         intent: "sale", // Replace with actual intent (e.g., "authorization" or "sale")
         // merchantInvoiceNumber: "Inv0124", // Replace with actual merchant invoice number
@@ -318,12 +334,54 @@ const bookAppointmentCallback = async (query: Record<string, any>) => {
 
     const executePaymentResult = await executePaymentResponse.json();
     if (status === "success") {
+      const appointment = await prisma.appointment.findUnique({
+        where: {
+          id: executePaymentResult.merchantInvoiceNumber,
+        },
+        include: {
+          schedule: true,
+        },
+      });
+
+      if (!appointment) {
+        throw new AppError(httpStatus.NOT_FOUND, "Appointment not found", "");
+      }
+
+
+      // total slot = 3, available slot = 3
+      // (total - available) +1
+
+      const alreadyBookedSlots =
+        appointment.schedule.totalSlots -
+        appointment.schedule.availableSlots +
+        1;
+
+      const serialNumber = alreadyBookedSlots + 1;
+
+      const joiningTime = addMinutes(
+        appointment.schedule.startDateTime,
+        (serialNumber - 1) * 20, // 20 minutes per slot
+      );
+
       await tx.appointment.update({
         where: {
           id: executePaymentResult.merchantInvoiceNumber,
         },
         data: {
           status: AppointmentStatus.CONFIRMED,
+          joiningTime: joiningTime,
+          serialNumber: serialNumber,
+        },
+      });
+
+       const newAvailableSlots = appointment.schedule.availableSlots - 1;
+
+      await prisma.schedule.update({
+        where: {
+          id: appointment.schedule.id,
+        },
+        data: {
+          availableSlots: newAvailableSlots,
         },
       });
 
