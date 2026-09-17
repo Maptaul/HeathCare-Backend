@@ -15,6 +15,7 @@ import { AppointmentRoutes } from "./app/module/appointment/appointment.route.js
 import { AuthRoutes } from "./app/module/auth/auth.route.js";
 import { DoctorRoutes } from "./app/module/doctor/doctor.route.js";
 import { paymentRoutes } from "./app/module/payment/payment.route.js";
+import { PrescriptionRoutes } from "./app/module/prescription/prescription.route.js";
 import { ScheduleRoutes } from "./app/module/schedule/schedule.route.js";
 import { UserRoutes } from "./app/module/user/user.route.js";
 
@@ -40,6 +41,7 @@ app.use("/api/v1/appointment", AppointmentRoutes);
 app.use("/api/v1/doctor", DoctorRoutes);
 app.use("/api/v1/schedule", ScheduleRoutes);
 app.use("/api/v1/payment", paymentRoutes);
+app.use("/api/v1/prescription", PrescriptionRoutes);
 
 app.get("/test", async (req: Request, res: Response, next: NextFunction) => {
   try {

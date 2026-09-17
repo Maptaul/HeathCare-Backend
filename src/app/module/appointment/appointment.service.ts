@@ -2,7 +2,6 @@ import { addMinutes, isBefore, isSameDay, subHours } from "date-fns";
 import ejs from "ejs";
 import httpStatus from "http-status";
 import path from "path";
-import PDFDocument from "pdfkit";
 import {
   AppointmentStatus,
   PaymentStatus,
@@ -23,6 +22,7 @@ import {
   IPayAppointmentPayload,
   IUpdateAppointmentStatusPayload,
 } from "./appointment.interface.js";
+import { buildAppointmentConfirmationPdf } from "./appointment.pdf.js";
 
 const bookAppointment = async (
   payload: IBookAppointmentPayload,
@@ -416,59 +416,19 @@ const bookAppointmentCallback = async (query: Record<string, any>) => {
 
       //pdf generation and email sending logic
 
-      const pdfDocument = new PDFDocument({
-        margin: 50,
+      const pdfBuffer = await buildAppointmentConfirmationPdf({
+        patientName: appointment.patient.name,
+        patientEmail: appointment.patient.email,
+        doctorName: appointment.doctor.name,
+        doctorEmail: appointment.doctor.email,
+        scheduleDate: appointment.schedule.startDateTime.toDateString(),
+        joiningTime: appointment.joiningTime,
+        serialNumber: appointment.serialNumber,
+        meetingLink: appointment.schedule.meetingLink,
+        amount: executePaymentResult.amount,
+        transactionID: executePaymentResult.trxID,
+        paidAt: executePaymentResult.paymentExecuteTime,
       });
-
-      const pdfChunks: Buffer[] = [];
-      pdfDocument.on("data", (chunk: Buffer) => {
-        pdfChunks.push(chunk);
-      });
-
-      const pdfReadyPromise = new Promise<Buffer>((resolve, reject) => {
-        pdfDocument.on("end", () => {
-          const pdfBuffer = Buffer.concat(pdfChunks);
-          resolve(pdfBuffer);
-        });
-      });
-
-      pdfDocument
-        .fontSize(20)
-        .text("Appointment Confirmation", { align: "center" });
-      pdfDocument.moveDown();
-      pdfDocument
-        .fontSize(14)
-        .text(`Patient Name: ${appointment.patient.name}`);
-      pdfDocument
-        .fontSize(14)
-        .text(`Patient Email: ${appointment.patient.email}`);
-
-      pdfDocument.moveDown(2);
-
-      pdfDocument.fontSize(14).text(`Doctor Name: ${appointment.doctor.name}`);
-      pdfDocument
-        .fontSize(14)
-        .text(`Doctor Email: ${appointment.doctor.email}`);
-
-      pdfDocument.moveDown(2);
-      pdfDocument.text(
-        `Schedule Date: ${appointment.schedule.startDateTime.toDateString()}`,
-      );
-
-      pdfDocument.moveDown(2);
-      pdfDocument.text(`Joining Time: ${appointment.joiningTime}`);
-      pdfDocument.text(`Serial Number: ${appointment.serialNumber}`);
-      pdfDocument.text(`Meeting Link: ${appointment.schedule.meetingLink}`);
-
-      pdfDocument.moveDown();
-      pdfDocument.text(`Amount Paid: ${executePaymentResult.amount} BDT`);
-      pdfDocument.text(`Payment Method: bKash`);
-      pdfDocument.text(`Transaction ID: ${executePaymentResult.trxID}`);
-      pdfDocument.text(`Paid At: ${executePaymentResult.paymentExecuteTime}`);
-
-      pdfDocument.end();
-
-      const pdfBuffer = await pdfReadyPromise;
 
       const templatePath = path.join(
         process.cwd(),
