@@ -11,6 +11,7 @@ import config from "./app/config/index.js";
 import { getBkashIdToken } from "./app/lib/bkash.js";
 import { globalErrorHandler } from "./app/middleware/globalErrorHandler.js";
 import { notFound } from "./app/middleware/notFound.js";
+import { AnalyticsRoute } from "./app/module/analytics/analytics.route.js";
 import { AppointmentRoutes } from "./app/module/appointment/appointment.route.js";
 import { AuthRoutes } from "./app/module/auth/auth.route.js";
 import { DoctorRoutes } from "./app/module/doctor/doctor.route.js";
@@ -42,6 +43,7 @@ app.use("/api/v1/doctor", DoctorRoutes);
 app.use("/api/v1/schedule", ScheduleRoutes);
 app.use("/api/v1/payment", paymentRoutes);
 app.use("/api/v1/prescription", PrescriptionRoutes);
+app.use("/api/v1/analytics", AnalyticsRoute);
 
 app.get("/test", async (req: Request, res: Response, next: NextFunction) => {
   try {
