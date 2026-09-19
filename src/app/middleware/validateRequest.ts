@@ -4,10 +4,15 @@ import z from "zod";
 import { catchAsync } from "../utils/catchAsync.js";
 import { AppError } from "../utils/appError.js";
 
-export const ValidateRequest = (zodSchema: z.ZodObject) => {
+type TRequestSource = "body" | "params" | "query";
+
+export const ValidateRequest = (
+  zodSchema: z.ZodObject,
+  source: TRequestSource = "body",
+) => {
   return catchAsync((req: Request, res: Response, next: NextFunction) => {
     try {
-      const payload = req.body ?? {};
+      const payload = req[source] ?? {};
       const result = zodSchema.safeParse(payload);
 
       if (!result.success) {
@@ -18,7 +23,17 @@ export const ValidateRequest = (zodSchema: z.ZodObject) => {
         );
       }
 
-      req.body = result.data;
+      if (source === "query") {
+        // req.query has no setter in Express 5, so it must be redefined
+        // instead of reassigned.
+        Object.defineProperty(req, "query", {
+          value: result.data,
+          writable: true,
+          configurable: true,
+        });
+      } else {
+        req[source] = result.data;
+      }
 
       next();
     } catch (error) {

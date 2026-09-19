@@ -69,7 +69,7 @@ app.get("/", async (req: Request, res: Response) => {
     statusCode: httpStatus.OK,
     message: "Welcome to Healthcare System Backend API",
     data: {
-      name: "PH Healthcare",
+      name: "Wio Healthcare",
       description: "Smart Healthcare System",
       version: "v1",
     },

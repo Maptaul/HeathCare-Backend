@@ -58,7 +58,11 @@ const approveDoctor = catchAsync(async (req: Request, res: Response) => {
   const payload = req.body;
   const reviewer = req.user!;
   if (!reviewer) {
-    throw new AppError(httpStatus.UNAUTHORIZED, "User is not authenticated", "");
+    throw new AppError(
+      httpStatus.UNAUTHORIZED,
+      "User is not authenticated",
+      "",
+    );
   }
 
   const result = await DoctorServices.approveDoctor(payload, reviewer);
@@ -80,9 +84,71 @@ const getAllDoctors = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const updateDoctorProfile = catchAsync(async (req: Request, res: Response) => {
+  const payload = req.body;
+  const user = req.user!;
+
+  const result = await DoctorServices.updateDoctorProfile(payload, user);
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    success: true,
+    message: "Doctor profile updated successfully",
+    data: result,
+  });
+});
+
+const getAvailableDoctorsByTodaySchedule = catchAsync(
+  async (req: Request, res: Response) => {
+    const { data, meta } =
+      await DoctorServices.getAvailableDoctorsByTodaySchedule(req.query);
+    sendResponse(res, {
+      statusCode: httpStatus.OK,
+      success: true,
+      message: "Available doctors retrieved successfully",
+      data,
+      meta,
+    });
+  },
+);
+
+const getAllDoctorsListPublic = catchAsync(
+  async (req: Request, res: Response) => {
+    const { data, meta } = await DoctorServices.getAllDoctorsListPublic(
+      req.query,
+    );
+    sendResponse(res, {
+      statusCode: httpStatus.OK,
+      success: true,
+      message: "Doctors list retrieved successfully",
+      data,
+      meta,
+    });
+  },
+);
+
+const getSingleDoctorPublicProfile = catchAsync(
+  async (req: Request, res: Response) => {
+    const doctorId = req.params.doctorId as string;
+
+    const result = await DoctorServices.getSingleDoctorPublicProfile(
+      doctorId,
+    );
+    sendResponse(res, {
+      statusCode: httpStatus.OK,
+      success: true,
+      message: "Doctor profile retrieved successfully",
+      data: result,
+    });
+  },
+);
+
 export const DoctorController = {
   ApplyAsDoctor,
   verifyDoctorEmail,
   approveDoctor,
   getAllDoctors,
+  updateDoctorProfile,
+  getAvailableDoctorsByTodaySchedule,
+  getAllDoctorsListPublic,
+  getSingleDoctorPublicProfile,
 };

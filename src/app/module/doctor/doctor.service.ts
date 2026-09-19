@@ -1,12 +1,14 @@
 import bcrypt from "bcryptjs";
 import { UploadApiResponse } from "cloudinary";
 import crypto from "crypto";
+import { addDays, startOfDay } from "date-fns";
 import ejs from "ejs";
 import httpStatus from "http-status";
 import path from "path";
 import {
   DoctorVerificationStatus,
   Role,
+  ScheduleStatus,
 } from "../../../generated/prisma/client.js";
 import { DoctorWhereInput } from "../../../generated/prisma/models.js";
 import config from "../../config/index.js";
@@ -20,6 +22,7 @@ import { AppError } from "../../utils/appError.js";
 import {
   IApplyAsDoctorPayload,
   IApproveDoctorPayload,
+  IUpdateDoctorProfilePayload,
   IVerifyDoctorEmailPayload,
 } from "./doctor.interface.js";
 
@@ -82,12 +85,12 @@ const applyAsDoctor = async (
               }
               if (!result) {
                 return reject(
-                new AppError(
-                  httpStatus.INTERNAL_SERVER_ERROR,
-                  "No result returned from Cloudinary",
-                  "",
-                ),
-              );
+                  new AppError(
+                    httpStatus.INTERNAL_SERVER_ERROR,
+                    "No result returned from Cloudinary",
+                    "",
+                  ),
+                );
               }
               resolve(result);
             },
@@ -396,9 +399,265 @@ const getAllDoctors = async (query: IQuery) => {
   };
 };
 
+const updateDoctorProfile = async (
+  payload: IUpdateDoctorProfilePayload,
+  user: RequestUser,
+) => {
+  const existingDoctor = await prisma.doctor.findUnique({
+    where: { userId: user.userId },
+  });
+  if (!existingDoctor) {
+    throw new AppError(httpStatus.NOT_FOUND, "Doctor not found", "");
+  }
+
+  const updatedDoctor = await prisma.doctor.update({
+    where: { id: existingDoctor.id },
+    data: payload,
+  });
+
+  return updatedDoctor;
+};
+
+const getAvailableDoctorsByTodaySchedule = async (query: IQuery) => {
+  const limit = query.limit ? Number(query.limit) : 10;
+  const page = query.page ? Number(query.page) : 1;
+  const skip = (page - 1) * limit;
+  const sortBy = query.sortBy ? query.sortBy : "name";
+  const sortOrder = query.sortOrder === "desc" ? "desc" : "asc";
+
+  const now = new Date();
+  const startOfToday = startOfDay(now);
+  const startOfTomorrow = addDays(startOfToday, 1);
+
+  const andConditions: DoctorWhereInput[] = [
+    { isDeleted: false },
+    { verificationStatus: DoctorVerificationStatus.APPROVED },
+    {
+      schedules: {
+        some: {
+          isDeleted: false,
+          status: ScheduleStatus.PUBLISHED,
+          availableSlots: { gt: 0 },
+          startDateTime: {
+            gte: startOfToday,
+            lt: startOfTomorrow,
+            gt: now,
+          },
+        },
+      },
+    },
+  ];
+
+  if (query.searchTerm) {
+    andConditions.push({
+      OR: [
+        { name: { contains: query.searchTerm, mode: "insensitive" } },
+        {
+          specialization: {
+            contains: query.searchTerm,
+            mode: "insensitive",
+          },
+        },
+      ],
+    });
+  }
+
+  if (query.specialization) {
+    andConditions.push({
+      specialization: { equals: query.specialization, mode: "insensitive" },
+    });
+  }
+
+  const availableDoctors = await prisma.doctor.findMany({
+    where: {
+      AND: andConditions,
+    },
+    select: {
+      id: true,
+      name: true,
+      specialization: true,
+      licenseNumber: true,
+      qualifications: true,
+      experienceYears: true,
+      bio: true,
+      consultationFee: true,
+      createdAt: true,
+      schedules: {
+        where: {
+          isDeleted: false,
+          status: ScheduleStatus.PUBLISHED,
+          availableSlots: { gt: 0 },
+          startDateTime: {
+            gte: startOfToday,
+            lt: startOfTomorrow,
+            gt: now,
+          },
+        },
+        orderBy: { [sortBy]: sortOrder },
+        select: {
+          id: true,
+          startDateTime: true,
+          endDateTime: true,
+          totalSlots: true,
+          availableSlots: true,
+        },
+      },
+    },
+    take: limit,
+    skip: skip,
+    orderBy: {
+      [sortBy]: sortOrder,
+    },
+  });
+
+  const totalAvailableDoctorCount = await prisma.doctor.count({
+    where: {
+      AND: andConditions,
+    },
+  });
+
+  return {
+    data: availableDoctors,
+    meta: {
+      page: page,
+      limit: limit,
+      total: totalAvailableDoctorCount,
+      totalPages: Math.ceil(totalAvailableDoctorCount / limit),
+    },
+  };
+};
+
+const getAllDoctorsListPublic = async (query: IQuery) => {
+  const limit = query.limit ? Number(query.limit) : 10;
+  const page = query.page ? Number(query.page) : 1;
+  const skip = (page - 1) * limit;
+  const sortBy = query.sortBy ? query.sortBy : "createdAt";
+  const sortOrder = query.sortOrder === "desc" ? "desc" : "asc";
+
+  const andConditions: DoctorWhereInput[] = [
+    { isDeleted: false },
+    { verificationStatus: DoctorVerificationStatus.APPROVED },
+  ];
+
+  if (query.searchTerm) {
+    andConditions.push({
+      OR: [
+        { name: { contains: query.searchTerm, mode: "insensitive" } },
+        {
+          specialization: {
+            contains: query.searchTerm,
+            mode: "insensitive",
+          },
+        },
+        {
+          qualifications: {
+            contains: query.searchTerm,
+            mode: "insensitive",
+          },
+        },
+      ],
+    });
+  }
+
+  if (query.specialization) {
+    andConditions.push({
+      specialization: { equals: query.specialization, mode: "insensitive" },
+    });
+  }
+
+  const publicDoctorsList = await prisma.doctor.findMany({
+    where: {
+      AND: andConditions,
+    },
+    select: {
+      id: true,
+      name: true,
+      specialization: true,
+      licenseNumber: true,
+      qualifications: true,
+      experienceYears: true,
+      bio: true,
+      consultationFee: true,
+      createdAt: true,
+    },
+    take: limit,
+    skip: skip,
+    orderBy: {
+      [sortBy]: sortOrder,
+    },
+  });
+
+  const totalDoctorCount = await prisma.doctor.count({
+    where: {
+      AND: andConditions,
+    },
+  });
+
+  return {
+    data: publicDoctorsList,
+    meta: {
+      page: page,
+      limit: limit,
+      total: totalDoctorCount,
+      totalPages: Math.ceil(totalDoctorCount / limit),
+    },
+  };
+};
+
+const getSingleDoctorPublicProfile = async (doctorId: string) => {
+  const doctor = await prisma.doctor.findUnique({
+    where: { id: doctorId },
+    select: {
+      id: true,
+      name: true,
+      specialization: true,
+      licenseNumber: true,
+      qualifications: true,
+      experienceYears: true,
+      bio: true,
+      consultationFee: true,
+      createdAt: true,
+      isDeleted: true,
+      verificationStatus: true,
+      schedules: {
+        where: {
+          isDeleted: false,
+          status: ScheduleStatus.PUBLISHED,
+          availableSlots: { gt: 0 },
+          startDateTime: { gt: new Date() },
+        },
+        orderBy: { startDateTime: "asc" },
+        select: {
+          id: true,
+          startDateTime: true,
+          endDateTime: true,
+          totalSlots: true,
+          availableSlots: true,
+        },
+      },
+    },
+  });
+
+  if (
+    !doctor ||
+    doctor.isDeleted ||
+    doctor.verificationStatus !== DoctorVerificationStatus.APPROVED
+  ) {
+    throw new AppError(httpStatus.NOT_FOUND, "Doctor not found", "");
+  }
+
+  const { isDeleted, verificationStatus, ...publicDoctorProfile } = doctor;
+
+  return publicDoctorProfile;
+};
+
 export const DoctorServices = {
   applyAsDoctor,
   verifyDoctorEmail,
   approveDoctor,
   getAllDoctors,
+  getSingleDoctorPublicProfile,
+  getAllDoctorsListPublic,
+  updateDoctorProfile,
+  getAvailableDoctorsByTodaySchedule,
 };

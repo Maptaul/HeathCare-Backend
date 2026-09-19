@@ -28,3 +28,9 @@ export interface IApproveDoctorPayload {
   rejectionReason: string;
 }
 
+export interface IUpdateDoctorProfilePayload {
+  address?: string;
+  bio?: string;
+  consultationFee?: number;
+  contactNumber?: string;
+}
