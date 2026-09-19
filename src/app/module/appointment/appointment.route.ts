@@ -4,6 +4,7 @@ import { auth } from "../../middleware/checkAuth.js";
 import { ValidateRequest } from "../../middleware/validateRequest.js";
 import { AppointmentController } from "./appointment.controller.js";
 import {
+  AppointmentIdValidationSchema,
   BookAppointmentStatusValidationSchema,
   UpdateAppointmentStatusValidationSchema,
 } from "./appointment.validation.js";
@@ -19,11 +20,13 @@ router.post(
 router.post(
   "/pay-appointment",
   auth(Role.PATIENT),
+  ValidateRequest(AppointmentIdValidationSchema),
   AppointmentController.payAppointment,
 );
 router.post(
   "/cancel-appointment",
   auth(Role.PATIENT, Role.ADMIN, Role.SUPER_ADMIN),
+  ValidateRequest(AppointmentIdValidationSchema),
   AppointmentController.cancelAppointment,
 );
 // book appointment callback url

@@ -6,7 +6,7 @@ import {
   startOfDay,
 } from "date-fns";
 import httpStatus from "http-status";
-import { ScheduleStatus } from "../../../generated/prisma/browser";
+import { ScheduleStatus } from "../../../generated/prisma/enums.js";
 import { ScheduleWhereInput } from "../../../generated/prisma/models";
 import { IQuery } from "../../interfaces";
 import { prisma } from "../../lib/prisma";
@@ -48,7 +48,7 @@ const createSchedule = async (
   const startOfTheDay = startOfDay(payload.startDateTime); // 25 august 2023 00:00:00
   const startOfNextDay = addDays(startOfTheDay, 1); // 26 august 2023 00:00:00
 
-  const existingSchedulesOnThisDate = await prisma.schedule.findMany({
+  const existingScheduleOnThisDate = await prisma.schedule.findFirst({
     where: {
       doctorId: doctor.id,
       isDeleted: false,
@@ -59,19 +59,26 @@ const createSchedule = async (
     },
   });
 
-  if (existingSchedulesOnThisDate) {
+  if (existingScheduleOnThisDate) {
     throw new AppError(
       httpStatus.CONFLICT,
       "Schedule already exists for this date",
     );
   }
   const durationInMinutes = differenceInMinutes(
-    payload.startDateTime,
     payload.endDateTime,
+    payload.startDateTime,
   );
   const MINUTES_ALLOCATED_PER_SLOT = 20;
 
   const totalSlots = Math.floor(durationInMinutes / MINUTES_ALLOCATED_PER_SLOT);
+
+  if (totalSlots < 1) {
+    throw new AppError(
+      httpStatus.BAD_REQUEST,
+      `Schedule must be at least ${MINUTES_ALLOCATED_PER_SLOT} minutes long`,
+    );
+  }
 
   const schedule = await prisma.schedule.create({
     data: {
@@ -328,7 +335,7 @@ const updateSchedule = async (
   ) {
     throw new AppError(
       httpStatus.BAD_REQUEST,
-      "You cannot update a completed or cancelled schedule",
+      "You cannot update a published schedule that already has bookings",
     );
   }
   // if (schedule.doctorId !== doctor.id) {
@@ -365,8 +372,10 @@ const updateSchedule = async (
   const startOfTheDay = startOfDay(payload.startDateTime); // 25 august 2023 00:00:00
   const startOfNextDay = addDays(startOfTheDay, 1); // 26 august 2023 00:00:00
 
-  const existingSchedulesOnThisDate = await prisma.schedule.findMany({
+  const existingScheduleOnThisDate = await prisma.schedule.findFirst({
     where: {
+      // The schedule being updated is not a conflict with itself.
+      id: { not: scheduleId },
       doctorId: doctor.id,
       isDeleted: false,
       startDateTime: {
@@ -376,7 +385,7 @@ const updateSchedule = async (
     },
   });
 
-  if (existingSchedulesOnThisDate) {
+  if (existingScheduleOnThisDate) {
     throw new AppError(
       httpStatus.CONFLICT,
       "Schedule already exists for this date",
@@ -384,11 +393,19 @@ const updateSchedule = async (
   }
 
   const durationInMinutes = differenceInMinutes(
-    payload.startDateTime,
     payload.endDateTime,
+    payload.startDateTime,
   );
   const MINUTES_ALLOCATED_PER_SLOT = 20;
   const totalSlots = Math.floor(durationInMinutes / MINUTES_ALLOCATED_PER_SLOT);
+
+  if (totalSlots < 1) {
+    throw new AppError(
+      httpStatus.BAD_REQUEST,
+      `Schedule must be at least ${MINUTES_ALLOCATED_PER_SLOT} minutes long`,
+    );
+  }
+
   const updatedSchedule = await prisma.schedule.update({
     where: {
       id: scheduleId,
@@ -473,7 +490,7 @@ const deleteSchedule = async (scheduleId: string, user: RequestUser) => {
   ) {
     throw new AppError(
       httpStatus.BAD_REQUEST,
-      "You cannot delete a completed or cancelled schedule",
+      "You cannot delete a published schedule that already has bookings",
     );
   }
 
@@ -492,7 +509,7 @@ const deleteSchedule = async (scheduleId: string, user: RequestUser) => {
 
 const getTodaysSchedules = async (query: IQuery) => {
   if (!query.doctorId) {
-    throw new AppError(httpStatus.NOT_FOUND, "Doctor ID is required");
+    throw new AppError(httpStatus.BAD_REQUEST, "Doctor ID is required");
   }
 
   const doctor = await prisma.doctor.findUnique({

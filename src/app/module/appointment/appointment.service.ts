@@ -11,7 +11,7 @@ import {
 import { AppointmentWhereInput } from "../../../generated/prisma/models.js";
 import config from "../../config/index.js";
 import { IQuery } from "../../interfaces/index.js";
-import { getBkashIdToken } from "../../lib/bkash.js";
+import { getBkashIdToken, getBkashPaymentStatus } from "../../lib/bkash.js";
 import { transporter } from "../../lib/nodemailer.js";
 import { prisma } from "../../lib/prisma.js";
 import { RequestUser } from "../../middleware/checkAuth.js";
@@ -83,13 +83,13 @@ const bookAppointment = async (
     //   );
     // }
 
-    const existingAppointment = await prisma.appointment.findFirst({
+    const existingAppointment = await tx.appointment.findFirst({
       where: {
         scheduleId: payload.scheduleId,
         patientId: patient.id,
-        // status: {
-        //   not: AppointmentStatus.CANCELLED,
-        // },
+        status: {
+          not: AppointmentStatus.CANCELLED,
+        },
       },
     });
 
@@ -146,7 +146,6 @@ const bookAppointment = async (
         patientId: patient.id,
         doctorId: schedule.doctorId,
         scheduleId: schedule.id,
-        amount: amount,
       },
     });
 
@@ -201,6 +200,7 @@ const bookAppointment = async (
     });
 
     return {
+      appointmentId: appointment.id,
       paymentUrl: bkashCreatePaymentResult.bkashURL,
     }; // Return the result of the bKash payment creation
   });
@@ -307,6 +307,8 @@ const payAppointment = async (
   };
 };
 
+const BKASH_SUCCESS_CODE = "0000";
+
 const bookAppointmentCallback = async (query: Record<string, any>) => {
   console.log("CALLBACK QUERY:", query);
   console.log("PAYMENT ID:", query.paymentID);
@@ -347,9 +349,33 @@ const bookAppointmentCallback = async (query: Record<string, any>) => {
       },
     );
 
-    const executePaymentResult = await executePaymentResponse.json();
+    let executePaymentResult = await executePaymentResponse.json();
     if (status === "success") {
-      const appointment = await prisma.appointment.findUnique({
+      // A replayed callback cannot execute the same payment twice, so fall back
+      // to bKash's own record rather than walking on with undefined ids.
+      if (executePaymentResult?.statusCode !== BKASH_SUCCESS_CODE) {
+        executePaymentResult = await getBkashPaymentStatus(
+          paymentId,
+          bkashIdToken,
+        );
+      }
+
+      if (
+        executePaymentResult?.statusCode !== BKASH_SUCCESS_CODE ||
+        executePaymentResult?.transactionStatus !== "Completed"
+      ) {
+        throw new AppError(
+          httpStatus.BAD_GATEWAY,
+          `bKash payment was not completed: ${
+            executePaymentResult?.statusMessage ||
+            executePaymentResult?.errorMessage ||
+            "unknown error"
+          }`,
+          "",
+        );
+      }
+
+      const appointment = await tx.appointment.findUnique({
         where: {
           id: executePaymentResult.merchantInvoiceNumber,
         },
@@ -364,13 +390,26 @@ const bookAppointmentCallback = async (query: Record<string, any>) => {
         throw new AppError(httpStatus.NOT_FOUND, "Appointment not found", "");
       }
 
-      // total slot = 3, available slot = 3
-      // (total - available) +1
+      if (appointment.status === AppointmentStatus.CANCELLED) {
+        throw new AppError(
+          httpStatus.CONFLICT,
+          "This appointment was cancelled before the payment completed. The payment needs to be refunded.",
+          "",
+        );
+      }
+
+      // bKash can call back more than once. PENDING is the only state still
+      // waiting on payment; anything else means this callback already ran, and
+      // redoing it would take a second slot and reissue the serial number.
+      if (appointment.status !== AppointmentStatus.PENDING) {
+        return {
+          executePaymentResult,
+          redirectUrl: `${config.frontend_url}/dashboard/my-appointments?status=success`,
+        };
+      }
 
       const alreadyBookedSlots =
-        appointment.schedule.totalSlots -
-        appointment.schedule.availableSlots +
-        1;
+        appointment.schedule.totalSlots - appointment.schedule.availableSlots;
 
       const serialNumber = alreadyBookedSlots + 1;
 
@@ -390,14 +429,14 @@ const bookAppointmentCallback = async (query: Record<string, any>) => {
         },
       });
 
-      const newAvailableSlots = appointment.schedule.availableSlots - 1;
-
-      await prisma.schedule.update({
+      await tx.schedule.update({
         where: {
           id: appointment.schedule.id,
         },
         data: {
-          availableSlots: newAvailableSlots,
+          availableSlots: {
+            decrement: 1,
+          },
         },
       });
 
@@ -414,57 +453,25 @@ const bookAppointmentCallback = async (query: Record<string, any>) => {
         },
       });
 
-      //pdf generation and email sending logic
-
-      const pdfBuffer = await buildAppointmentConfirmationPdf({
-        patientName: appointment.patient.name,
-        patientEmail: appointment.patient.email,
-        doctorName: appointment.doctor.name,
-        doctorEmail: appointment.doctor.email,
-        scheduleDate: appointment.schedule.startDateTime.toDateString(),
-        joiningTime: appointment.joiningTime,
-        serialNumber: appointment.serialNumber,
-        meetingLink: appointment.schedule.meetingLink,
-        amount: executePaymentResult.amount,
-        transactionID: executePaymentResult.trxID,
-        paidAt: executePaymentResult.paymentExecuteTime,
-      });
-
-      const templatePath = path.join(
-        process.cwd(),
-        "src/app/templates/appointment-confirmation.ejs",
-      );
-      const templateData = {
-        patientName: appointment.patient.name,
-        patientEmail: appointment.patient.email,
-        doctorName: appointment.doctor.name,
-        doctorEmail: appointment.doctor.email,
-        scheduleDate: appointment.schedule.startDateTime.toDateString(),
-        joiningTime: appointment.joiningTime,
-        serialNumber: appointment.serialNumber,
-        meetingLink: appointment.schedule.meetingLink,
-        amount: executePaymentResult.amount,
-        paymentMethod: "bKash",
-        transactionID: executePaymentResult.trxID,
-        paidAt: executePaymentResult.paymentExecuteTime,
-      };
-      const html = await ejs.renderFile(templatePath, templateData);
-
-      await transporter.sendMail({
-        from: config.email_sender,
-        to: appointment.patient.email,
-        subject: "Your New Appointment Booked",
-        html,
-        attachments: [
-          {
-            filename: "appointment-confirmation.pdf",
-            content: pdfBuffer,
-          },
-        ],
-      });
-
+      // The confirmation PDF and email are built AFTER this transaction commits.
+      // Rendering or SMTP failing must never roll back a payment bKash already
+      // took. joiningTime/serialNumber come from the values computed above -
+      // `appointment` was read before the update, so its copies are still null.
       return {
         executePaymentResult,
+        confirmation: {
+          patientName: appointment.patient.name,
+          patientEmail: appointment.patient.email,
+          doctorName: appointment.doctor.name,
+          doctorEmail: appointment.doctor.email,
+          scheduleDate: appointment.schedule.startDateTime.toDateString(),
+          joiningTime,
+          serialNumber,
+          meetingLink: appointment.schedule.meetingLink,
+          amount: executePaymentResult.amount,
+          transactionID: executePaymentResult.trxID,
+          paidAt: executePaymentResult.paymentExecuteTime,
+        },
         redirectUrl: `${config.frontend_url}/dashboard/my-appointments?status=success`,
       };
     } else if (status === "failure") {
@@ -500,7 +507,41 @@ const bookAppointmentCallback = async (query: Record<string, any>) => {
         redirectUrl: `${config.frontend_url}/dashboard/my-appointments?error=payment-failed`,
       };
     }
-  });
+  },
+  {
+      maxWait: 10000, // Maximum time to wait for the transaction to complete (in milliseconds)
+      timeout: 30000, // Maximum time for the entire transaction to complete (in milliseconds)
+    });
+  const confirmation = transactionResult?.confirmation;
+  if (confirmation) {
+    try {
+      const pdfBuffer = await buildAppointmentConfirmationPdf(confirmation);
+      const html = await ejs.renderFile(
+        path.join(
+          process.cwd(),
+          "src/app/templates/appointment-confirmation.ejs",
+        ),
+        { ...confirmation, paymentMethod: "bKash" },
+      );
+
+      await transporter.sendMail({
+        from: config.email_sender,
+        to: confirmation.patientEmail,
+        subject: "Your New Appointment Booked",
+        html,
+        attachments: [
+          {
+            filename: "appointment-confirmation.pdf",
+            content: pdfBuffer,
+          },
+        ],
+      });
+    } catch (error) {
+      // The booking is already paid and confirmed - log and move on.
+      console.error("Appointment confirmation email failed:", error);
+    }
+  }
+
   return transactionResult; // Return the result
 };
 
@@ -553,16 +594,20 @@ const cancelAppointment = async (
       },
     });
 
-    await prisma.schedule.update({
-      where: {
-        id: existingAppointment.schedule.id,
-      },
-      data: {
-        availableSlots: {
-          increment: 1,
+    // Only a CONFIRMED appointment ever consumed a slot - an unpaid PENDING one
+    // never decremented, so returning a slot here would invent one.
+    if (existingAppointment.status === AppointmentStatus.CONFIRMED) {
+      await tx.schedule.update({
+        where: {
+          id: existingAppointment.schedule.id,
         },
-      },
-    });
+        data: {
+          availableSlots: {
+            increment: 1,
+          },
+        },
+      });
+    }
 
     //refund logic
 
@@ -674,7 +719,7 @@ const updateAppointmentStatus = async (
   if (appointment.status === AppointmentStatus.PENDING) {
     throw new AppError(
       httpStatus.BAD_REQUEST,
-      "Cannot update status of a cancelled appointment",
+      "Cannot update status of an unpaid appointment",
       "",
     );
   }
@@ -758,22 +803,22 @@ const getAppointments = async (query: IQuery, user: RequestUser) => {
   const appointments = await prisma.appointment.findMany({
     where: {
       AND: andConditions,
-      take: limit,
-      skip,
-      orderBy: {
-        [sortBy]: sortOrder,
-      },
-      include: {
-        doctor: {
-          select: {
-            id: true,
-            name: true,
-            specialization: true,
-          },
+    },
+    take: limit,
+    skip,
+    orderBy: {
+      [sortBy]: sortOrder,
+    },
+    include: {
+      doctor: {
+        select: {
+          id: true,
+          name: true,
+          specialization: true,
         },
-        schedule: true,
-        payment: true,
       },
+      schedule: true,
+      payment: true,
     },
   });
 
@@ -813,7 +858,7 @@ const getDoctorAppointments = async (query: IQuery, user: RequestUser) => {
 
   const andConditions: AppointmentWhereInput[] = [
     {
-      patientId: doctor.id,
+      doctorId: doctor.id,
     },
   ];
   if (query.status) {
@@ -825,23 +870,23 @@ const getDoctorAppointments = async (query: IQuery, user: RequestUser) => {
   const appointments = await prisma.appointment.findMany({
     where: {
       AND: andConditions,
-      take: limit,
-      skip,
-      orderBy: {
-        [sortBy]: sortOrder,
-      },
-      include: {
-        patient: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            contactNumber: true,
-          },
+    },
+    take: limit,
+    skip,
+    orderBy: {
+      [sortBy]: sortOrder,
+    },
+    include: {
+      patient: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          contactNumber: true,
         },
-        schedule: true,
-        payment: true,
       },
+      schedule: true,
+      payment: true,
     },
   });
   const total = await prisma.appointment.count({
@@ -903,30 +948,30 @@ const getAllAppointments = async (query: IQuery) => {
   const appointments = await prisma.appointment.findMany({
     where: {
       AND: andConditions,
-      take: limit,
-      skip,
-      orderBy: {
-        [sortBy]: sortOrder,
-      },
-      include: {
-        patient: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-          },
+    },
+    take: limit,
+    skip,
+    orderBy: {
+      [sortBy]: sortOrder,
+    },
+    include: {
+      patient: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
         },
-        doctor: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            specialization: true,
-          },
-        },
-        schedule: true,
-        payment: true,
       },
+      doctor: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          specialization: true,
+        },
+      },
+      schedule: true,
+      payment: true,
     },
   });
   const total = await prisma.appointment.count({

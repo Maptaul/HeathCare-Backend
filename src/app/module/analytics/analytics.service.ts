@@ -11,33 +11,33 @@ import { AppError } from "../../utils/appError";
 
 const getAdminAnalytics = async () => {
   // total doctors
-  const totalDoctors = await prisma.user.count({
+  const totalDoctors = await prisma.doctor.count({
     where: {
       isDeleted: false,
     },
   });
 
-  const pendingDoctorsApplications = await prisma.user.count({
+  const pendingDoctorsApplications = await prisma.doctor.count({
     where: {
       isDeleted: false,
       verificationStatus: DoctorVerificationStatus.PENDING,
     },
   });
-  const ApprovedDoctorsApplications = await prisma.user.count({
+  const ApprovedDoctorsApplications = await prisma.doctor.count({
     where: {
       isDeleted: false,
       verificationStatus: DoctorVerificationStatus.APPROVED,
     },
   });
 
-  const RejectedDoctorsApplications = await prisma.user.count({
+  const RejectedDoctorsApplications = await prisma.doctor.count({
     where: {
       isDeleted: false,
       verificationStatus: DoctorVerificationStatus.REJECTED,
     },
   });
 
-  const totalPatients = await prisma.user.count({
+  const totalPatients = await prisma.patient.count({
     where: {
       isDeleted: false,
     },
@@ -100,8 +100,8 @@ const getAdminAnalytics = async () => {
   };
 };
 const getPatientAnalytics = async (user: RequestUser) => {
-  const patient = await prisma.user.findUnique({
-    where: { id: user.userId },
+  const patient = await prisma.patient.findUnique({
+    where: { userId: user.userId },
   });
 
   if (!patient) {
@@ -110,13 +110,13 @@ const getPatientAnalytics = async (user: RequestUser) => {
 
   const totalAppointments = await prisma.appointment.count({
     where: {
-      patientId: user.userId,
+      patientId: patient.id,
     },
   });
 
   const upcomingAppointments = await prisma.appointment.count({
     where: {
-      patientId: user.userId,
+      patientId: patient.id,
       status: AppointmentStatus.CONFIRMED,
     },
   });
@@ -181,8 +181,8 @@ const getPatientAnalytics = async (user: RequestUser) => {
   };
 };
 const getDoctorAnalytics = async (user: RequestUser) => {
-  const doctor = await prisma.user.findUnique({
-    where: { id: user.userId },
+  const doctor = await prisma.doctor.findUnique({
+    where: { userId: user.userId },
   });
 
   if (!doctor) {
@@ -191,52 +191,54 @@ const getDoctorAnalytics = async (user: RequestUser) => {
 
   const totalSchedules = await prisma.schedule.count({
     where: {
-      doctorId: user.userId,
+      doctorId: doctor.id,
     },
   });
 
   const publishedSchedules = await prisma.schedule.count({
     where: {
-      doctorId: user.userId,
-      isPublished: true,
+      doctorId: doctor.id,
       status: ScheduleStatus.PUBLISHED,
     },
   });
 
   const totalAppointments = await prisma.appointment.count({
     where: {
-      doctorId: user.userId,
+      doctorId: doctor.id,
     },
   });
 
   const upcomingAppointments = await prisma.appointment.count({
     where: {
-      doctorId: user.userId,
+      doctorId: doctor.id,
       status: AppointmentStatus.CONFIRMED,
     },
   });
 
   const ongoingAppointments = await prisma.appointment.count({
     where: {
-      doctorId: user.userId,
+      doctorId: doctor.id,
       status: AppointmentStatus.ONGOING,
     },
   });
 
   const completedAppointments = await prisma.appointment.count({
     where: {
+      doctorId: doctor.id,
       status: AppointmentStatus.COMPLETED,
     },
   });
 
   const pendingAppointments = await prisma.appointment.count({
     where: {
+      doctorId: doctor.id,
       status: AppointmentStatus.PENDING,
     },
   });
 
   const cancelledAppointments = await prisma.appointment.count({
     where: {
+      doctorId: doctor.id,
       status: AppointmentStatus.CANCELLED,
     },
   });
@@ -244,7 +246,7 @@ const getDoctorAnalytics = async (user: RequestUser) => {
   const totalRefundsResult = await prisma.payment.aggregate({
     where: {
       appointment: {
-        doctorId: user.userId,
+        doctorId: doctor.id,
       },
       status: PaymentStatus.REFUNDED,
     },
@@ -258,7 +260,7 @@ const getDoctorAnalytics = async (user: RequestUser) => {
   const totalDoctorEarningsResult = await prisma.payment.aggregate({
     where: {
       appointment: {
-        doctorId: user.userId,
+        doctorId: doctor.id,
       },
       status: PaymentStatus.PAID,
     },

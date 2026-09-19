@@ -85,7 +85,8 @@ const getAllDoctors = catchAsync(async (req: Request, res: Response) => {
 });
 
 const updateDoctorProfile = catchAsync(async (req: Request, res: Response) => {
-  const payload = req.body;
+  // The schema wraps the editable fields in `doctor`; Prisma needs them flat.
+  const payload = req.body.doctor;
   const user = req.user!;
 
   const result = await DoctorServices.updateDoctorProfile(payload, user);

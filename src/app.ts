@@ -2,13 +2,11 @@ import cookieParser from "cookie-parser";
 import cors from "cors";
 import express, {
   type Application,
-  NextFunction,
   type Request,
   type Response,
 } from "express";
 import httpStatus from "http-status";
 import config from "./app/config/index.js";
-import { getBkashIdToken } from "./app/lib/bkash.js";
 import { globalErrorHandler } from "./app/middleware/globalErrorHandler.js";
 import { notFound } from "./app/middleware/notFound.js";
 import { AnalyticsRoute } from "./app/module/analytics/analytics.route.js";
@@ -44,23 +42,6 @@ app.use("/api/v1/schedule", ScheduleRoutes);
 app.use("/api/v1/payment", paymentRoutes);
 app.use("/api/v1/prescription", PrescriptionRoutes);
 app.use("/api/v1/analytics", AnalyticsRoute);
-
-app.get("/test", async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const grantIdTokenResult = await getBkashIdToken();
-
-    console.log(grantIdTokenResult);
-
-    res.status(httpStatus.OK).json({
-      success: true,
-      message: "Welcome to Healthcare System Backend",
-      data: null,
-    });
-  } catch (error) {
-    console.log(error);
-    next(error);
-  }
-});
 
 // Basic route
 app.get("/", async (req: Request, res: Response) => {

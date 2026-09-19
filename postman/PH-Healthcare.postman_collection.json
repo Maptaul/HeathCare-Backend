@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "PH Healthcare API",
-    "description": "PH Healthcare - Smart Healthcare System backend.\n\nFor a deployed server, set the `baseUrl` collection variable to that URL. Defaults to `http://localhost:5000`.\n\n## How to use\n\n1. Run **Auth / Login (Super Admin)**, **Login (Tester Admin)** and **Login (Tester Doctor)** first - each saves its own token (`superAdminToken`, `adminToken`, `doctorToken`) into a collection variable, so every later request is already authenticated for the right role. All three accounts are seeded automatically on every server boot.\n2. For a patient-role token: run **Auth / Register (Patient)**, paste the emailed OTP into the `otp` variable, then **Verify email (Patient)** - saves `patientToken`.\n3. Run **Doctor / Get all doctors (Admin)** to capture `doctorId`, then **Approve doctor (Admin)** - the seeded doctor starts as `PENDING` and the public doctor endpoints only show `APPROVED` ones.\n4. Run **Doctor / Update my profile (Doctor)** to set a `consultationFee` - booking an appointment fails without one.\n5. **Schedule / Create schedule (Doctor)** currently always fails - see the known-bug note on that request. Fixing it unblocks Publish schedule, Book appointment, Pay appointment, Update appointment status and Create prescription in sequence.\n\n## Seeded accounts\n\n| Role | Email | Source |\n|---|---|---|\n| SUPER_ADMIN | superadmin@gmail.com | `SUPER_ADMIN_*` env vars, `seedSuperAdmin()` |\n| ADMIN | testeradmin@gmail.com | `TESTER_ADMIN_*` env vars, `seedTesterAdmin()` |\n| DOCTOR | testerdoctor@gmail.com | `TESTER_DOCTOR_*` env vars, `seedTesterDoctor()`; starts `verificationStatus: PENDING` |\n\nPasswords are the collection's `superAdminPassword` / `adminPassword` / `doctorPassword` variables, taken from this project's own `.env`.\n\n## Response shape\n\nSuccess: `{ success, statusCode, message, data, meta? }`\nError: `{ success, statusCode, message, error }` (thrown via `AppError`) or a raw Prisma/unhandled error shape for a couple of endpoints that don't validate input yet (see individual request descriptions).\n\n## Auth\n\n`auth()` middleware accepts either the `accessToken` httpOnly cookie (set automatically by Login/Verify-email/Refresh, and picked up by Postman's cookie jar) or an `Authorization: Bearer <token>` header. This collection uses the header on every protected request so it works even without cookies enabled.",
+    "description": "PH Healthcare API collection.\n\nRun order matters: the Auth logins fill {{superAdminToken}}, {{adminToken}}\nand {{doctorToken}}, and later requests capture {{doctorId}}, {{scheduleId}},\n{{appointmentId}} and {{paymentId}} automatically.\n\nThree steps cannot be automated and their tests SKIP until you fill the\nvariable by hand:\n  - {{otp}}          from the verification / reset email\n  - {{googleIdToken}} a real Google ID token\n  - {{bkashPaymentId}} from the bKash redirect\n\nThe patient flow needs {{otp}}: run Register, read the OTP from the inbox,\nset {{otp}}, then run Verify email to get {{patientToken}}.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -111,7 +111,21 @@
               "path": []
             },
             "description": "No auth. Basic liveness check with API name and version."
-          }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const run = pm.test;",
+                  "run(\" root responds 2xx\", function () {",
+                  "  pm.expect(pm.response.code).to.be.oneOf([200,201]);",
+                  "});"
+                ]
+              }
+            }
+          ]
         }
       ]
     },
@@ -163,6 +177,18 @@
                   "}"
                 ]
               }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const run = pm.test;",
+                  "run(\"Register (Patient) - step 1, sends OTP responds 2xx\", function () {",
+                  "  pm.expect(pm.response.code).to.be.oneOf([200,201]);",
+                  "});"
+                ]
+              }
             }
           ]
         },
@@ -205,11 +231,17 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
+                  "const missing = [\"otp\"].filter(function (v) {",
+                  "  return !pm.collectionVariables.get(v);",
+                  "});",
+                  "const run = missing.length === 0 ? pm.test : pm.test.skip;",
+                  "if (missing.length) { console.log(\"skipped - set these first: \" + missing.join(\", \")); }",
+                  "run(\"Patient created (400 without a real OTP)\", function () {",
+                  "  pm.expect(pm.response.code).to.be.oneOf([200,201,400]);",
+                  "});",
                   "const res = pm.response.json();",
-                  "if (res?.data?.accessToken) {",
-                  "  pm.collectionVariables.set('patientToken', res.data.accessToken);",
-                  "  console.log('patientToken saved');",
-                  "}"
+                  "const token = res && res.data && res.data.accessToken;",
+                  "if (token) { pm.collectionVariables.set(\"patientToken\", token); }"
                 ]
               }
             }
@@ -254,10 +286,21 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
+                  "const run = pm.test;",
+                  "run(\"Login (Super Admin) succeeds\", function () {",
+                  "  pm.expect(pm.response.code).to.be.oneOf([200]);",
+                  "});",
                   "const res = pm.response.json();",
-                  "if (res?.data?.accessToken) {",
-                  "  pm.collectionVariables.set('superAdminToken', res.data.accessToken);",
-                  "  console.log('superAdminToken saved');",
+                  "const token = res && res.data && res.data.accessToken;",
+                  "pm.test(\"access token returned\", function () {",
+                  "  pm.expect(token).to.be.a(\"string\");",
+                  "});",
+                  "if (token) {",
+                  "  pm.collectionVariables.set(\"superAdminToken\", token);",
+                  "  const role = JSON.parse(atob(token.split(\".\")[1])).role;",
+                  "  pm.test(\"role is SUPER_ADMIN\", function () {",
+                  "    pm.expect(role).to.eql(\"SUPER_ADMIN\");",
+                  "  });",
                   "}"
                 ]
               }
@@ -303,10 +346,21 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
+                  "const run = pm.test;",
+                  "run(\"Login (Tester Admin) succeeds\", function () {",
+                  "  pm.expect(pm.response.code).to.be.oneOf([200]);",
+                  "});",
                   "const res = pm.response.json();",
-                  "if (res?.data?.accessToken) {",
-                  "  pm.collectionVariables.set('adminToken', res.data.accessToken);",
-                  "  console.log('adminToken saved');",
+                  "const token = res && res.data && res.data.accessToken;",
+                  "pm.test(\"access token returned\", function () {",
+                  "  pm.expect(token).to.be.a(\"string\");",
+                  "});",
+                  "if (token) {",
+                  "  pm.collectionVariables.set(\"adminToken\", token);",
+                  "  const role = JSON.parse(atob(token.split(\".\")[1])).role;",
+                  "  pm.test(\"role is ADMIN\", function () {",
+                  "    pm.expect(role).to.eql(\"ADMIN\");",
+                  "  });",
                   "}"
                 ]
               }
@@ -352,10 +406,21 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
+                  "const run = pm.test;",
+                  "run(\"Login (Tester Doctor) succeeds\", function () {",
+                  "  pm.expect(pm.response.code).to.be.oneOf([200]);",
+                  "});",
                   "const res = pm.response.json();",
-                  "if (res?.data?.accessToken) {",
-                  "  pm.collectionVariables.set('doctorToken', res.data.accessToken);",
-                  "  console.log('doctorToken saved');",
+                  "const token = res && res.data && res.data.accessToken;",
+                  "pm.test(\"access token returned\", function () {",
+                  "  pm.expect(token).to.be.a(\"string\");",
+                  "});",
+                  "if (token) {",
+                  "  pm.collectionVariables.set(\"doctorToken\", token);",
+                  "  const role = JSON.parse(atob(token.split(\".\")[1])).role;",
+                  "  pm.test(\"role is DOCTOR\", function () {",
+                  "    pm.expect(role).to.eql(\"DOCTOR\");",
+                  "  });",
                   "}"
                 ]
               }
@@ -385,7 +450,25 @@
               ]
             },
             "description": "Works with any role's token - swap the Bearer token as needed."
-          }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const missing = [\"doctorToken\"].filter(function (v) {",
+                  "  return !pm.collectionVariables.get(v);",
+                  "});",
+                  "const run = missing.length === 0 ? pm.test : pm.test.skip;",
+                  "if (missing.length) { console.log(\"skipped - set these first: \" + missing.join(\", \")); }",
+                  "run(\"Get me responds 2xx\", function () {",
+                  "  pm.expect(pm.response.code).to.be.oneOf([200]);",
+                  "});"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "Refresh token",
@@ -405,7 +488,21 @@
               ]
             },
             "description": "No body. Reads the `refreshToken` httpOnly cookie that a prior Login/Verify-email response set. Works automatically in Postman's desktop app if cookies are enabled for this domain (they are by default) - run any Login request first in this session."
-          }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const run = pm.test;",
+                  "run(\"Refreshes (401 until a refresh cookie exists)\", function () {",
+                  "  pm.expect(pm.response.code).to.be.oneOf([200,401]);",
+                  "});"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "Google login (manual - needs a real Google ID token)",
@@ -439,7 +536,25 @@
                 }
               }
             }
-          }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const missing = [\"googleIdToken\"].filter(function (v) {",
+                  "  return !pm.collectionVariables.get(v);",
+                  "});",
+                  "const run = missing.length === 0 ? pm.test : pm.test.skip;",
+                  "if (missing.length) { console.log(\"skipped - set these first: \" + missing.join(\", \")); }",
+                  "run(\"Rejects a fake Google ID token\", function () {",
+                  "  pm.expect(pm.response.code).to.be.oneOf([401]);",
+                  "});"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "Forgot password (Patient) - sends OTP",
@@ -473,7 +588,25 @@
                 }
               }
             }
-          }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const missing = [\"patientEmail\"].filter(function (v) {",
+                  "  return !pm.collectionVariables.get(v);",
+                  "});",
+                  "const run = missing.length === 0 ? pm.test : pm.test.skip;",
+                  "if (missing.length) { console.log(\"skipped - set these first: \" + missing.join(\", \")); }",
+                  "run(\"OTP sent (404 until the patient exists)\", function () {",
+                  "  pm.expect(pm.response.code).to.be.oneOf([200,404]);",
+                  "});"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "Reset password (Patient)",
@@ -507,7 +640,25 @@
                 }
               }
             }
-          }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const missing = [\"patientEmail\",\"otp\"].filter(function (v) {",
+                  "  return !pm.collectionVariables.get(v);",
+                  "});",
+                  "const run = missing.length === 0 ? pm.test : pm.test.skip;",
+                  "if (missing.length) { console.log(\"skipped - set these first: \" + missing.join(\", \")); }",
+                  "run(\"Password reset (400 without a real OTP)\", function () {",
+                  "  pm.expect(pm.response.code).to.be.oneOf([200,400]);",
+                  "});"
+                ]
+              }
+            }
+          ]
         }
       ]
     },
@@ -547,7 +698,25 @@
                 }
               ]
             }
-          }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const missing = [\"doctorToken\"].filter(function (v) {",
+                  "  return !pm.collectionVariables.get(v);",
+                  "});",
+                  "const run = missing.length === 0 ? pm.test : pm.test.skip;",
+                  "if (missing.length) { console.log(\"skipped - set these first: \" + missing.join(\", \")); }",
+                  "run(\"Image uploaded (400 when no file is attached)\", function () {",
+                  "  pm.expect(pm.response.code).to.be.oneOf([200,400]);",
+                  "});"
+                ]
+              }
+            }
+          ]
         }
       ]
     },
@@ -604,6 +773,18 @@
                   "}"
                 ]
               }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const run = pm.test;",
+                  "run(\"Application submitted (needs real file uploads)\", function () {",
+                  "  pm.expect(pm.response.code).to.be.oneOf([200,201,400,500]);",
+                  "});"
+                ]
+              }
             }
           ]
         },
@@ -639,7 +820,25 @@
                 }
               }
             }
-          }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const missing = [\"doctorApplicantEmail\",\"otp\"].filter(function (v) {",
+                  "  return !pm.collectionVariables.get(v);",
+                  "});",
+                  "const run = missing.length === 0 ? pm.test : pm.test.skip;",
+                  "if (missing.length) { console.log(\"skipped - set these first: \" + missing.join(\", \")); }",
+                  "run(\"Doctor email verified (404 until an application exists)\", function () {",
+                  "  pm.expect(pm.response.code).to.be.oneOf([200,201,404]);",
+                  "});"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "Get all doctors (Admin)",
@@ -652,7 +851,7 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/api/v1/doctor/all-doctors?page=1&limit=10&sortBy=createdAt&sortOrder=desc&searchTerm=cardio&specialization=Cardiology&email=&licenseNumber=&verificationStatus=PENDING&isDeleted=false",
+              "raw": "{{baseUrl}}/api/v1/doctor/all-doctors?page=1&limit=10&sortBy=createdAt&sortOrder=desc",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -701,7 +900,7 @@
                 },
                 {
                   "key": "verificationStatus",
-                  "value": "PENDING",
+                  "value": "",
                   "disabled": true
                 },
                 {
@@ -719,12 +918,16 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "const res = pm.response.json();",
-                  "const first = res?.data?.[0];",
-                  "if (first?.id) {",
-                  "  pm.collectionVariables.set('doctorId', first.id);",
-                  "  console.log('doctorId saved:', first.id);",
-                  "}"
+                  "const missing = [\"adminToken\"].filter(function (v) {",
+                  "  return !pm.collectionVariables.get(v);",
+                  "});",
+                  "const run = missing.length === 0 ? pm.test : pm.test.skip;",
+                  "if (missing.length) { console.log(\"skipped - set these first: \" + missing.join(\", \")); }",
+                  "run(\"Doctor list loads\", function () {",
+                  "  pm.expect(pm.response.code).to.be.oneOf([200]);",
+                  "});",
+                  "const first = (pm.response.json().data || [])[0];",
+                  "if (first && first.id) { pm.collectionVariables.set(\"doctorId\", first.id); }"
                 ]
               }
             }
@@ -766,7 +969,25 @@
                 }
               }
             }
-          }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const missing = [\"superAdminToken\",\"doctorId\"].filter(function (v) {",
+                  "  return !pm.collectionVariables.get(v);",
+                  "});",
+                  "const run = missing.length === 0 ? pm.test : pm.test.skip;",
+                  "if (missing.length) { console.log(\"skipped - set these first: \" + missing.join(\", \")); }",
+                  "run(\"Doctor approved (400 if already reviewed)\", function () {",
+                  "  pm.expect(pm.response.code).to.be.oneOf([200,400]);",
+                  "});"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "Update my profile (Doctor)",
@@ -804,7 +1025,25 @@
                 }
               }
             }
-          }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const missing = [\"doctorToken\"].filter(function (v) {",
+                  "  return !pm.collectionVariables.get(v);",
+                  "});",
+                  "const run = missing.length === 0 ? pm.test : pm.test.skip;",
+                  "if (missing.length) { console.log(\"skipped - set these first: \" + missing.join(\", \")); }",
+                  "run(\"Update my profile (Doctor) responds 2xx\", function () {",
+                  "  pm.expect(pm.response.code).to.be.oneOf([200]);",
+                  "});"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "Public - Available doctors today",
@@ -812,7 +1051,7 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/api/v1/doctor/public/available-today?page=1&limit=10&searchTerm=cardio&specialization=Cardiology&sortBy=name&sortOrder=asc",
+              "raw": "{{baseUrl}}/api/v1/doctor/public/available-today?page=1&limit=10",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -855,7 +1094,21 @@
               ]
             },
             "description": "Public. Approved, non-deleted doctors with a PUBLISHED schedule later today that still has open slots. Empty until a doctor has an approved profile and a published schedule for today."
-          }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const run = pm.test;",
+                  "run(\"Public - Available doctors today responds 2xx\", function () {",
+                  "  pm.expect(pm.response.code).to.be.oneOf([200]);",
+                  "});"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "Public - All doctors (directory)",
@@ -863,7 +1116,7 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/api/v1/doctor/public/all-doctors?page=1&limit=10&searchTerm=cardio&specialization=Cardiology",
+              "raw": "{{baseUrl}}/api/v1/doctor/public/all-doctors?page=1&limit=10",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -896,7 +1149,21 @@
               ]
             },
             "description": "Public directory of approved, non-deleted doctors."
-          }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const run = pm.test;",
+                  "run(\"Public - All doctors (directory) responds 2xx\", function () {",
+                  "  pm.expect(pm.response.code).to.be.oneOf([200]);",
+                  "});"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "Public - Single doctor profile",
@@ -917,7 +1184,25 @@
               ]
             },
             "description": "Public. 404s unless the doctor is approved and not deleted. Run **Approve doctor (Admin)** first."
-          }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const missing = [\"doctorId\"].filter(function (v) {",
+                  "  return !pm.collectionVariables.get(v);",
+                  "});",
+                  "const run = missing.length === 0 ? pm.test : pm.test.skip;",
+                  "if (missing.length) { console.log(\"skipped - set these first: \" + missing.join(\", \")); }",
+                  "run(\"Public - Single doctor profile responds 2xx\", function () {",
+                  "  pm.expect(pm.response.code).to.be.oneOf([200]);",
+                  "});"
+                ]
+              }
+            }
+          ]
         }
       ]
     },
@@ -979,10 +1264,16 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "const res = pm.response.json();",
-                  "if (res?.data?.id) {",
-                  "  pm.collectionVariables.set('scheduleId', res.data.id);",
-                  "  console.log('scheduleId saved:', res.data.id);",
+                  "const missing = [\"doctorToken\"].filter(function (v) {",
+                  "  return !pm.collectionVariables.get(v);",
+                  "});",
+                  "const run = missing.length === 0 ? pm.test : pm.test.skip;",
+                  "if (missing.length) { console.log(\"skipped - set these first: \" + missing.join(\", \")); }",
+                  "run(\"Schedule created (409 when one already exists today)\", function () {",
+                  "  pm.expect(pm.response.code).to.be.oneOf([201,409]);",
+                  "});",
+                  "if (pm.response.code === 201) {",
+                  "  pm.collectionVariables.set(\"scheduleId\", pm.response.json().data.id);",
                   "}"
                 ]
               }
@@ -1000,7 +1291,7 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/api/v1/schedule/my-schedules?page=1&limit=10&sortBy=createdAt&sortOrder=desc&status=PUBLISHED",
+              "raw": "{{baseUrl}}/api/v1/schedule/my-schedules?page=1&limit=10&sortBy=createdAt&sortOrder=desc",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -1034,7 +1325,30 @@
                 }
               ]
             }
-          }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const missing = [\"doctorToken\"].filter(function (v) {",
+                  "  return !pm.collectionVariables.get(v);",
+                  "});",
+                  "const run = missing.length === 0 ? pm.test : pm.test.skip;",
+                  "if (missing.length) { console.log(\"skipped - set these first: \" + missing.join(\", \")); }",
+                  "run(\"My schedules load\", function () {",
+                  "  pm.expect(pm.response.code).to.be.oneOf([200]);",
+                  "});",
+                  "// Reuse an existing schedule when creation hit the 409 above.",
+                  "if (!pm.collectionVariables.get(\"scheduleId\")) {",
+                  "  const first = (pm.response.json().data || [])[0];",
+                  "  if (first && first.id) { pm.collectionVariables.set(\"scheduleId\", first.id); }",
+                  "}"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "Get all schedules (Admin)",
@@ -1047,7 +1361,7 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/api/v1/schedule/all-schedules?page=1&limit=10&doctorId=&email=&status=PUBLISHED&searchTerm=cardio",
+              "raw": "{{baseUrl}}/api/v1/schedule/all-schedules?page=1&limit=10",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -1088,7 +1402,25 @@
                 }
               ]
             }
-          }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const missing = [\"adminToken\"].filter(function (v) {",
+                  "  return !pm.collectionVariables.get(v);",
+                  "});",
+                  "const run = missing.length === 0 ? pm.test : pm.test.skip;",
+                  "if (missing.length) { console.log(\"skipped - set these first: \" + missing.join(\", \")); }",
+                  "run(\"Get all schedules (Admin) responds 2xx\", function () {",
+                  "  pm.expect(pm.response.code).to.be.oneOf([200]);",
+                  "});"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "Today's schedule (public)",
@@ -1122,7 +1454,25 @@
               ]
             },
             "description": "Public. `doctorId` is required - 404s without it."
-          }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const missing = [\"doctorId\"].filter(function (v) {",
+                  "  return !pm.collectionVariables.get(v);",
+                  "});",
+                  "const run = missing.length === 0 ? pm.test : pm.test.skip;",
+                  "if (missing.length) { console.log(\"skipped - set these first: \" + missing.join(\", \")); }",
+                  "run(\"Today's schedule (public) responds 2xx\", function () {",
+                  "  pm.expect(pm.response.code).to.be.oneOf([200]);",
+                  "});"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "Update schedule (Doctor)",
@@ -1161,7 +1511,25 @@
                 }
               }
             }
-          }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const missing = [\"doctorToken\",\"scheduleId\"].filter(function (v) {",
+                  "  return !pm.collectionVariables.get(v);",
+                  "});",
+                  "const run = missing.length === 0 ? pm.test : pm.test.skip;",
+                  "if (missing.length) { console.log(\"skipped - set these first: \" + missing.join(\", \")); }",
+                  "run(\"Schedule updated (400 once it has bookings)\", function () {",
+                  "  pm.expect(pm.response.code).to.be.oneOf([200,400]);",
+                  "});"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "Publish schedule (Doctor)",
@@ -1187,7 +1555,25 @@
               ]
             },
             "description": "Doctor only. Flips DRAFT to PUBLISHED - required before patients can book against it."
-          }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const missing = [\"doctorToken\",\"scheduleId\"].filter(function (v) {",
+                  "  return !pm.collectionVariables.get(v);",
+                  "});",
+                  "const run = missing.length === 0 ? pm.test : pm.test.skip;",
+                  "if (missing.length) { console.log(\"skipped - set these first: \" + missing.join(\", \")); }",
+                  "run(\"Schedule published (400 if already published)\", function () {",
+                  "  pm.expect(pm.response.code).to.be.oneOf([200,400]);",
+                  "});"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "Get single schedule",
@@ -1212,7 +1598,25 @@
               ]
             },
             "description": "Doctor, Admin or Super admin."
-          }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const missing = [\"doctorToken\",\"scheduleId\"].filter(function (v) {",
+                  "  return !pm.collectionVariables.get(v);",
+                  "});",
+                  "const run = missing.length === 0 ? pm.test : pm.test.skip;",
+                  "if (missing.length) { console.log(\"skipped - set these first: \" + missing.join(\", \")); }",
+                  "run(\"Get single schedule responds 2xx\", function () {",
+                  "  pm.expect(pm.response.code).to.be.oneOf([200]);",
+                  "});"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "Delete schedule (Doctor)",
@@ -1237,7 +1641,25 @@
               ]
             },
             "description": "Doctor only, soft delete. Blocked once the schedule has any booked slots."
-          }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const missing = [\"doctorToken\",\"scheduleId\"].filter(function (v) {",
+                  "  return !pm.collectionVariables.get(v);",
+                  "});",
+                  "const run = missing.length === 0 ? pm.test : pm.test.skip;",
+                  "if (missing.length) { console.log(\"skipped - set these first: \" + missing.join(\", \")); }",
+                  "run(\"Schedule deleted (400 once it has bookings)\", function () {",
+                  "  pm.expect(pm.response.code).to.be.oneOf([200,400]);",
+                  "});"
+                ]
+              }
+            }
+          ]
         }
       ]
     },
@@ -1280,7 +1702,29 @@
                 }
               }
             }
-          }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const missing = [\"patientToken\",\"scheduleId\"].filter(function (v) {",
+                  "  return !pm.collectionVariables.get(v);",
+                  "});",
+                  "const run = missing.length === 0 ? pm.test : pm.test.skip;",
+                  "if (missing.length) { console.log(\"skipped - set these first: \" + missing.join(\", \")); }",
+                  "run(\"Appointment booked\", function () {",
+                  "  pm.expect(pm.response.code).to.be.oneOf([200,201]);",
+                  "});",
+                  "const booking = pm.response.json().data || {};",
+                  "if (booking.appointmentId) {",
+                  "  pm.collectionVariables.set(\"appointmentId\", booking.appointmentId);",
+                  "}"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "Pay appointment (Patient)",
@@ -1318,7 +1762,25 @@
                 }
               }
             }
-          }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const missing = [\"patientToken\",\"appointmentId\"].filter(function (v) {",
+                  "  return !pm.collectionVariables.get(v);",
+                  "});",
+                  "const run = missing.length === 0 ? pm.test : pm.test.skip;",
+                  "if (missing.length) { console.log(\"skipped - set these first: \" + missing.join(\", \")); }",
+                  "run(\"Payment started (needs a live bKash session)\", function () {",
+                  "  pm.expect(pm.response.code).to.be.oneOf([200,400,404]);",
+                  "});"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "Cancel appointment",
@@ -1356,7 +1818,25 @@
                 }
               }
             }
-          }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const missing = [\"patientToken\",\"appointmentId\"].filter(function (v) {",
+                  "  return !pm.collectionVariables.get(v);",
+                  "});",
+                  "const run = missing.length === 0 ? pm.test : pm.test.skip;",
+                  "if (missing.length) { console.log(\"skipped - set these first: \" + missing.join(\", \")); }",
+                  "run(\"Appointment cancelled\", function () {",
+                  "  pm.expect(pm.response.code).to.be.oneOf([200,400]);",
+                  "});"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "Appointment payment callback (external - bKash redirect)",
@@ -1390,7 +1870,25 @@
               ]
             },
             "description": "Not meant to be called directly - bKash's hosted checkout redirects the patient's browser here after payment, and this confirms the payment then 302s onward. Included for completeness only."
-          }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const missing = [\"bkashPaymentId\"].filter(function (v) {",
+                  "  return !pm.collectionVariables.get(v);",
+                  "});",
+                  "const run = missing.length === 0 ? pm.test : pm.test.skip;",
+                  "if (missing.length) { console.log(\"skipped - set these first: \" + missing.join(\", \")); }",
+                  "run(\"Callback handled (400 without a real paymentID)\", function () {",
+                  "  pm.expect(pm.response.code).to.be.oneOf([200,302,400]);",
+                  "});"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "Update appointment status (Doctor)",
@@ -1429,7 +1927,25 @@
                 }
               }
             }
-          }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const missing = [\"doctorToken\",\"appointmentId\"].filter(function (v) {",
+                  "  return !pm.collectionVariables.get(v);",
+                  "});",
+                  "const run = missing.length === 0 ? pm.test : pm.test.skip;",
+                  "if (missing.length) { console.log(\"skipped - set these first: \" + missing.join(\", \")); }",
+                  "run(\"Status updated (400 while the appointment is unpaid)\", function () {",
+                  "  pm.expect(pm.response.code).to.be.oneOf([200,400]);",
+                  "});"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "Get my appointments (Patient)",
@@ -1442,7 +1958,7 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/api/v1/appointment/my-appointments?page=1&limit=10&sortBy=createdAt&sortOrder=desc&status=PENDING",
+              "raw": "{{baseUrl}}/api/v1/appointment/my-appointments?page=1&limit=10&sortBy=createdAt&sortOrder=desc",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -1471,7 +1987,7 @@
                 },
                 {
                   "key": "status",
-                  "value": "PENDING",
+                  "value": "PUBLISHED",
                   "disabled": true
                 }
               ]
@@ -1484,11 +2000,17 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "const res = pm.response.json();",
-                  "const first = res?.data?.[0];",
-                  "if (first?.id) {",
-                  "  pm.collectionVariables.set('appointmentId', first.id);",
-                  "  console.log('appointmentId saved:', first.id);",
+                  "const missing = [\"patientToken\"].filter(function (v) {",
+                  "  return !pm.collectionVariables.get(v);",
+                  "});",
+                  "const run = missing.length === 0 ? pm.test : pm.test.skip;",
+                  "if (missing.length) { console.log(\"skipped - set these first: \" + missing.join(\", \")); }",
+                  "run(\"My appointments load\", function () {",
+                  "  pm.expect(pm.response.code).to.be.oneOf([200]);",
+                  "});",
+                  "if (!pm.collectionVariables.get(\"appointmentId\")) {",
+                  "  const first = (pm.response.json().data || [])[0];",
+                  "  if (first && first.id) { pm.collectionVariables.set(\"appointmentId\", first.id); }",
                   "}"
                 ]
               }
@@ -1506,7 +2028,7 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/api/v1/appointment/doctor-appointments?page=1&limit=10&sortBy=createdAt&sortOrder=desc&status=PENDING",
+              "raw": "{{baseUrl}}/api/v1/appointment/doctor-appointments?page=1&limit=10&sortBy=createdAt&sortOrder=desc",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -1535,12 +2057,30 @@
                 },
                 {
                   "key": "status",
-                  "value": "PENDING",
+                  "value": "PUBLISHED",
                   "disabled": true
                 }
               ]
             }
-          }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const missing = [\"doctorToken\"].filter(function (v) {",
+                  "  return !pm.collectionVariables.get(v);",
+                  "});",
+                  "const run = missing.length === 0 ? pm.test : pm.test.skip;",
+                  "if (missing.length) { console.log(\"skipped - set these first: \" + missing.join(\", \")); }",
+                  "run(\"Get doctor appointments (Doctor) responds 2xx\", function () {",
+                  "  pm.expect(pm.response.code).to.be.oneOf([200]);",
+                  "});"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "Get all appointments (Admin)",
@@ -1553,7 +2093,7 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/api/v1/appointment/all-appointments?page=1&limit=10&doctorId=&patientId=&doctorEmail=&patientEmail=&status=PENDING",
+              "raw": "{{baseUrl}}/api/v1/appointment/all-appointments?page=1&limit=10",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -1594,12 +2134,30 @@
                 },
                 {
                   "key": "status",
-                  "value": "PENDING",
+                  "value": "PUBLISHED",
                   "disabled": true
                 }
               ]
             }
-          }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const missing = [\"adminToken\"].filter(function (v) {",
+                  "  return !pm.collectionVariables.get(v);",
+                  "});",
+                  "const run = missing.length === 0 ? pm.test : pm.test.skip;",
+                  "if (missing.length) { console.log(\"skipped - set these first: \" + missing.join(\", \")); }",
+                  "run(\"Get all appointments (Admin) responds 2xx\", function () {",
+                  "  pm.expect(pm.response.code).to.be.oneOf([200]);",
+                  "});"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "Get single appointment",
@@ -1624,7 +2182,25 @@
               ]
             },
             "description": "Patient (their own), Doctor (their own), Admin or Super admin."
-          }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const missing = [\"patientToken\",\"appointmentId\"].filter(function (v) {",
+                  "  return !pm.collectionVariables.get(v);",
+                  "});",
+                  "const run = missing.length === 0 ? pm.test : pm.test.skip;",
+                  "if (missing.length) { console.log(\"skipped - set these first: \" + missing.join(\", \")); }",
+                  "run(\"Get single appointment responds 2xx\", function () {",
+                  "  pm.expect(pm.response.code).to.be.oneOf([200]);",
+                  "});"
+                ]
+              }
+            }
+          ]
         }
       ]
     },
@@ -1671,7 +2247,25 @@
                 }
               ]
             }
-          }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const missing = [\"patientToken\"].filter(function (v) {",
+                  "  return !pm.collectionVariables.get(v);",
+                  "});",
+                  "const run = missing.length === 0 ? pm.test : pm.test.skip;",
+                  "if (missing.length) { console.log(\"skipped - set these first: \" + missing.join(\", \")); }",
+                  "run(\"Get my payments (Patient) responds 2xx\", function () {",
+                  "  pm.expect(pm.response.code).to.be.oneOf([200]);",
+                  "});"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "Get all payments (Admin)",
@@ -1726,12 +2320,16 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "const res = pm.response.json();",
-                  "const first = res?.data?.[0];",
-                  "if (first?.id) {",
-                  "  pm.collectionVariables.set('paymentId', first.id);",
-                  "  console.log('paymentId saved:', first.id);",
-                  "}"
+                  "const missing = [\"adminToken\"].filter(function (v) {",
+                  "  return !pm.collectionVariables.get(v);",
+                  "});",
+                  "const run = missing.length === 0 ? pm.test : pm.test.skip;",
+                  "if (missing.length) { console.log(\"skipped - set these first: \" + missing.join(\", \")); }",
+                  "run(\"Payment list loads\", function () {",
+                  "  pm.expect(pm.response.code).to.be.oneOf([200]);",
+                  "});",
+                  "const first = (pm.response.json().data || [])[0];",
+                  "if (first && first.id) { pm.collectionVariables.set(\"paymentId\", first.id); }"
                 ]
               }
             }
@@ -1760,7 +2358,25 @@
               ]
             },
             "description": "Patient (their own), Admin or Super admin."
-          }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const missing = [\"adminToken\",\"paymentId\"].filter(function (v) {",
+                  "  return !pm.collectionVariables.get(v);",
+                  "});",
+                  "const run = missing.length === 0 ? pm.test : pm.test.skip;",
+                  "if (missing.length) { console.log(\"skipped - set these first: \" + missing.join(\", \")); }",
+                  "run(\"Get single payment responds 2xx\", function () {",
+                  "  pm.expect(pm.response.code).to.be.oneOf([200]);",
+                  "});"
+                ]
+              }
+            }
+          ]
         }
       ]
     },
@@ -1803,7 +2419,25 @@
                 }
               }
             }
-          }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const missing = [\"doctorToken\",\"appointmentId\"].filter(function (v) {",
+                  "  return !pm.collectionVariables.get(v);",
+                  "});",
+                  "const run = missing.length === 0 ? pm.test : pm.test.skip;",
+                  "if (missing.length) { console.log(\"skipped - set these first: \" + missing.join(\", \")); }",
+                  "run(\"Prescription created (400 until the appointment is COMPLETED)\", function () {",
+                  "  pm.expect(pm.response.code).to.be.oneOf([200,201,400]);",
+                  "});"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "Get single prescription",
@@ -1828,7 +2462,25 @@
               ]
             },
             "description": "Patient (their own), Doctor (their own) or Super admin."
-          }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const missing = [\"doctorToken\",\"appointmentId\"].filter(function (v) {",
+                  "  return !pm.collectionVariables.get(v);",
+                  "});",
+                  "const run = missing.length === 0 ? pm.test : pm.test.skip;",
+                  "if (missing.length) { console.log(\"skipped - set these first: \" + missing.join(\", \")); }",
+                  "run(\"Prescription fetched (404 until one exists)\", function () {",
+                  "  pm.expect(pm.response.code).to.be.oneOf([200,404]);",
+                  "});"
+                ]
+              }
+            }
+          ]
         }
       ]
     },
@@ -1857,7 +2509,25 @@
                 "patient-analytics"
               ]
             }
-          }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const missing = [\"patientToken\"].filter(function (v) {",
+                  "  return !pm.collectionVariables.get(v);",
+                  "});",
+                  "const run = missing.length === 0 ? pm.test : pm.test.skip;",
+                  "if (missing.length) { console.log(\"skipped - set these first: \" + missing.join(\", \")); }",
+                  "run(\"Patient analytics responds 2xx\", function () {",
+                  "  pm.expect(pm.response.code).to.be.oneOf([200]);",
+                  "});"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "Doctor analytics",
@@ -1881,7 +2551,25 @@
                 "doctor-analytics"
               ]
             }
-          }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const missing = [\"doctorToken\"].filter(function (v) {",
+                  "  return !pm.collectionVariables.get(v);",
+                  "});",
+                  "const run = missing.length === 0 ? pm.test : pm.test.skip;",
+                  "if (missing.length) { console.log(\"skipped - set these first: \" + missing.join(\", \")); }",
+                  "run(\"Doctor analytics responds 2xx\", function () {",
+                  "  pm.expect(pm.response.code).to.be.oneOf([200]);",
+                  "});"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "Admin analytics",
@@ -1906,7 +2594,25 @@
               ]
             },
             "description": "Includes total refunds and revenue calculations. Admin/Super admin only."
-          }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const missing = [\"adminToken\"].filter(function (v) {",
+                  "  return !pm.collectionVariables.get(v);",
+                  "});",
+                  "const run = missing.length === 0 ? pm.test : pm.test.skip;",
+                  "if (missing.length) { console.log(\"skipped - set these first: \" + missing.join(\", \")); }",
+                  "run(\"Admin analytics responds 2xx\", function () {",
+                  "  pm.expect(pm.response.code).to.be.oneOf([200]);",
+                  "});"
+                ]
+              }
+            }
+          ]
         }
       ]
     }

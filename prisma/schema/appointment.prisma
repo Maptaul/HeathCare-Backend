@@ -25,7 +25,10 @@ model Appointment {
 
   payment Payment?
 
-  @@unique([doctorId, patientId, scheduleId], name: "unique_appointment")
-  @@unique([scheduleId, serialNumber, joiningTime], name: "unique_appointment_serial_number")
+  // Uniqueness is enforced by partial indexes (see the
+  // 20260919_partial_unique_appointments migration) so a CANCELLED row does not
+  // block the patient from booking that schedule again. Prisma cannot express a
+  // WHERE clause on @@unique, hence the raw migration.
+  @@index([doctorId, patientId, scheduleId])
   @@map("appointments")
 }

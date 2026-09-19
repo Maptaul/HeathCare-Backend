@@ -4,7 +4,10 @@ import { upload } from "../../lib/multer.js";
 import { auth } from "../../middleware/checkAuth.js";
 import { ValidateRequest } from "../../middleware/validateRequest.js";
 import { DoctorController } from "./doctor.controller.js";
-import { UpdateProfileDoctorValidationZodSchema } from "./doctor.validation.js";
+import {
+  ApproveDoctorValidationZodSchema,
+  UpdateProfileDoctorValidationZodSchema,
+} from "./doctor.validation.js";
 
 const router = Router();
 
@@ -22,6 +25,7 @@ router.post("/verify-doctor-email", DoctorController.verifyDoctorEmail);
 router.post(
   "/approve-doctor",
   auth(Role.ADMIN, Role.SUPER_ADMIN),
+  ValidateRequest(ApproveDoctorValidationZodSchema),
   DoctorController.approveDoctor,
 );
 

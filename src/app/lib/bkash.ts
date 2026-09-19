@@ -127,3 +127,43 @@ export const getBkashIdToken = async () => {
     );
   }
 };
+
+/**
+ * bKash only lets a payment be executed once. When our own side fails after a
+ * successful execute, the retry comes back as an error - this asks bKash for
+ * the authoritative state of the payment instead.
+ */
+export const getBkashPaymentStatus = async (
+  paymentID: string,
+  bkashIdToken: string,
+) => {
+  const response = await fetch(
+    `${config.bkash_base_url}/tokenized/checkout/payment/status`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        accept: "application/json",
+        authorization: bkashIdToken,
+        "x-app-key": config.bkash_app_key,
+      },
+      body: JSON.stringify({ paymentID }),
+    },
+  );
+
+  if (!response.ok) {
+    throw new AppError(
+      httpStatus.BAD_GATEWAY,
+      "bkash payment status request failed",
+      "",
+    );
+  }
+
+  const result = await response.json();
+
+  return {
+    ...result,
+    merchantInvoiceNumber:
+      result.merchantInvoiceNumber ?? result.merchantInvoice,
+  };
+};

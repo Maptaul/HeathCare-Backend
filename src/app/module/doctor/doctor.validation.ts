@@ -42,6 +42,15 @@ export const UpdateProfileDoctorValidationZodSchema = z.object({
   }),
 });
 
+export const ApproveDoctorValidationZodSchema = z.object({
+  doctorId: z.string().trim().min(1, "Doctor ID is required"),
+  verificationStatus: z.enum(
+    ["APPROVED", "REJECTED"],
+    "Verification status must be either 'APPROVED' or 'REJECTED'",
+  ),
+  rejectionReason: z.string().trim().optional(),
+});
+
 export const PublicDoctorListQueryValidationZodSchema = z.object({
   searchTerm: z.string().trim().optional(),
   specialization: z.string().trim().optional(),

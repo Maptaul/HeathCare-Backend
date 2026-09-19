@@ -493,7 +493,8 @@ const getAvailableDoctorsByTodaySchedule = async (query: IQuery) => {
             gt: now,
           },
         },
-        orderBy: { [sortBy]: sortOrder },
+        // sortBy applies to the doctor, not the schedule — slots read best in time order.
+        orderBy: { startDateTime: "asc" },
         select: {
           id: true,
           startDateTime: true,

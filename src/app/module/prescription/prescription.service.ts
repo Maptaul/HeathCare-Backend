@@ -140,6 +140,7 @@ const getSinglePrescription = async (
           id: true,
           name: true,
           specialization: true,
+          userId: true,
         },
       },
       patient: {
