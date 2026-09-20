@@ -1,13 +1,14 @@
 {
   "info": {
     "name": "PH Healthcare API",
-    "description": "PH Healthcare API collection.\n\nRun order matters: the Auth logins fill {{superAdminToken}}, {{adminToken}}\nand {{doctorToken}}, and later requests capture {{doctorId}}, {{scheduleId}},\n{{appointmentId}} and {{paymentId}} automatically.\n\nThree steps cannot be automated and their tests SKIP until you fill the\nvariable by hand:\n  - {{otp}}          from the verification / reset email\n  - {{googleIdToken}} a real Google ID token\n  - {{bkashPaymentId}} from the bKash redirect\n\nThe patient flow needs {{otp}}: run Register, read the OTP from the inbox,\nset {{otp}}, then run Verify email to get {{patientToken}}.",
+    "description": "PH Healthcare API collection.\n\nTargets: {{localUrl}} = http://localhost:5000 , {{deployedUrl}} = https://healthcare-backend-coral.vercel.app\n{{baseUrl}} decides which one runs - set it to either value.\n\nRun order matters: the Auth logins fill {{superAdminToken}}, {{adminToken}}\nand {{doctorToken}}, and later requests capture {{doctorId}}, {{scheduleId}},\n{{appointmentId}} and {{paymentId}} automatically.\n\nThree steps cannot be automated and their tests SKIP until you fill the\nvariable by hand:\n  - {{otp}}           from the verification / reset email\n  - {{googleIdToken}} a real Google ID token\n  - {{bkashPaymentId}} from the bKash redirect\n\nThe patient flow needs {{otp}}: run Register, read the OTP from the inbox,\nset {{otp}}, then run Verify email to get {{patientToken}}.\n\nLogout runs last on purpose - it clears the cookies for everything after it.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
     {
       "key": "baseUrl",
-      "value": "http://localhost:5000"
+      "value": "http://localhost:5000",
+      "description": "The server every request hits. Paste {{deployedUrl}} in here to run the whole collection against Vercel."
     },
     {
       "key": "superAdminToken",
@@ -92,6 +93,18 @@
     {
       "key": "bkashPaymentId",
       "value": ""
+    },
+    {
+      "key": "localUrl",
+      "value": "http://localhost:5000",
+      "type": "string",
+      "description": "Local dev server (pnpm dev)."
+    },
+    {
+      "key": "deployedUrl",
+      "value": "https://healthcare-backend-coral.vercel.app",
+      "type": "string",
+      "description": "Deployed backend on Vercel."
     }
   ],
   "item": [
@@ -846,7 +859,7 @@
                 "verify-email"
               ]
             },
-            "description": "**Manual step**: paste the OTP emailed after Apply as doctor into the `otp` variable first.",
+            "description": "Requires a valid email and a 6-digit OTP; anything else is rejected with 400.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"email\": \"{{doctorApplicantEmail}}\",\n  \"otp\": \"{{otp}}\"\n}",

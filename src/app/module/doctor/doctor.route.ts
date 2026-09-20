@@ -7,6 +7,7 @@ import { DoctorController } from "./doctor.controller.js";
 import {
   ApproveDoctorValidationZodSchema,
   UpdateDoctorProfileValidationZodSchema,
+  VerifyDoctorEmailValidationZodSchema,
 } from "./doctor.validation.js";
 
 const router = Router();
@@ -22,6 +23,7 @@ router.post(
 );
 router.post(
   "/apply-as-doctor/verify-email",
+  ValidateRequest(VerifyDoctorEmailValidationZodSchema),
   DoctorController.verifyDoctorEmail,
 );
 
