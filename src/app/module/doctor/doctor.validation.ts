@@ -26,20 +26,25 @@ export const ApplyAsDoctorValidationZodSchema = z.object({
       .optional(),
   }),
 });
-export const UpdateProfileDoctorValidationZodSchema = z.object({
-  doctor: z.object({
-    address: z.string().trim().min(5, "Address is required").optional(),
-    bio: z.string().trim().max(500, "Bio must be less than or equal to 500 characters").optional(),
-    consultationFee: z
-      .number()
-      .min(0, "Consultation fee must be a positive number")
-      .optional(),
-    contactNumber: z
-      .string()
-      .trim()
-      .min(5, "Contact number is required")
-      .optional(),
-  }),
+export const UpdateDoctorProfileValidationZodSchema = z.object({
+  address: z
+    .string()
+    .trim()
+    .min(5, "Address must be at least 5 characters long")
+    .optional(),
+
+  bio: z.string().trim().max(1000, "Bio cannot exceed 1000 characters").optional(),
+
+  consultationFee: z
+    .number()
+    .min(0, "Consultation fee cannot be negative")
+    .optional(),
+
+  contactNumber: z
+    .string()
+    .trim()
+    .min(5, "Contact number is invalid")
+    .optional(),
 });
 
 export const ApproveDoctorValidationZodSchema = z.object({

@@ -207,6 +207,26 @@ const resetPassword = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const logout = catchAsync(async (_req: Request, res: Response) => {
+  // clearCookie only works when the options match the ones the cookie was set
+  // with, so these mirror loginUser/verifyPatientEmail exactly.
+  const cookieOptions = {
+    httpOnly: true,
+    secure: false,
+    sameSite: "none",
+  } as const;
+
+  res.clearCookie("accessToken", cookieOptions);
+  res.clearCookie("refreshToken", cookieOptions);
+
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    success: true,
+    message: "User logged out successfully",
+    data: null,
+  });
+});
+
 export const AuthController = {
   registerPatient,
   verifyPatientEmail,
@@ -216,4 +236,5 @@ export const AuthController = {
   googleLogin,
   forgotPassword,
   resetPassword,
+  logout,
 };

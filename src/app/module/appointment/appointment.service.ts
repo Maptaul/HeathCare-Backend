@@ -493,7 +493,7 @@ const bookAppointmentCallback = async (query: Record<string, any>) => {
           bkashPaymentId: paymentId,
         },
         data: {
-          status: PaymentStatus.CANCELED,
+          status: PaymentStatus.CANCELLED,
           gatewayResponse: executePaymentResult,
         },
       });

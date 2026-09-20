@@ -17,10 +17,10 @@ model Schedule {
   updatedAt DateTime @updatedAt
 
   doctorId String
-  doctor   Doctor @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  doctor   Doctor @relation(fields: [doctorId], references: [id], onDelete: Cascade, onUpdate: Cascade)
 
   appointments Appointment[]
 
-  @@unique([doctorId, startDateTime, endDateTime], name: "unique_schedule_per_doctor")
+  @@unique([doctorId, startDateTime, endDateTime], name: "unique_schedule")
   @@map("schedules")
 }

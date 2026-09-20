@@ -4,7 +4,7 @@ const PatientRegistrationZodSchema = z.object({
   name: z
     .string("Not a string")
     .min(3, "Name must be at least 3 characters long")
-    .max(50, "Name must be at most 50 characters long"),
+    .max(10, "Name must be at most 10 characters long"),
   email: z.email("Not a valid email"),
   password: z
     .string("Not a string")

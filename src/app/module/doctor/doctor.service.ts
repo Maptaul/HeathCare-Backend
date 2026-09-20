@@ -410,6 +410,16 @@ const updateDoctorProfile = async (
     throw new AppError(httpStatus.NOT_FOUND, "Doctor not found", "");
   }
 
+  // Zod strips unknown keys, so a wrongly shaped body arrives here as {} and
+  // would "succeed" without changing anything.
+  if (Object.keys(payload).length === 0) {
+    throw new AppError(
+      httpStatus.BAD_REQUEST,
+      "No valid fields to update. Allowed: address, bio, consultationFee, contactNumber",
+      "",
+    );
+  }
+
   const updatedDoctor = await prisma.doctor.update({
     where: { id: existingDoctor.id },
     data: payload,

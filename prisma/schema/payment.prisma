@@ -6,8 +6,8 @@ model Payment {
   amount   Decimal @db.Decimal(10, 2) //100.20
   currency String  @default("BDT") //BDT, USD, EUR, GBP, CAD, AUD, JPY, CNY
 
-  paymentGateway        PaymentGateway @default(BKASH)
-  merchantInvoiceNumber String         @unique //appointmentId + userId + timestamp
+  paymentGateway        String @default("bkash")
+  merchantInvoiceNumber String @unique //appointmentId + userId + timestamp
 
   bkashPaymentId String? @unique
   bkashTrxId     String?

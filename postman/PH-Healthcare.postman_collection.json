@@ -157,7 +157,7 @@
             "description": "Does NOT create the account yet - mails a 6 digit OTP and parks the signup in Redis for a short window. Run **Verify email (Patient)** next with that OTP to finish creating the account.\n\nA fresh `patientEmail` is generated once per collection run so re-runs don't collide with an already-verified account.",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"Rahim Patient\",\n  \"email\": \"{{patientEmail}}\",\n  \"password\": \"Patient@12345\",\n  \"patient\": {\n    \"contactNumber\": \"+8801700000001\"\n  }\n}",
+              "raw": "{\n  \"name\": \"Rahim Ali\",\n  \"email\": \"{{patientEmail}}\",\n  \"password\": \"Patient@12345\",\n  \"patient\": {\n    \"contactNumber\": \"+8801700000001\"\n  }\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -659,6 +659,41 @@
               }
             }
           ]
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/logout",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "logout"
+              ]
+            },
+            "description": "Clears the accessToken and refreshToken cookies. Run it last - every request after this one loses its cookie session."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const run = pm.test;",
+                  "run(\"Logout clears the auth cookies\", function () {",
+                  "  pm.expect(pm.response.code).to.be.oneOf([200]);",
+                  "});"
+                ]
+              }
+            }
+          ]
         }
       ]
     },
@@ -747,7 +782,7 @@
                 {
                   "key": "data",
                   "type": "text",
-                  "value": "{\"user\":{\"name\":\"Dr. Fatima Rahman\",\"email\":\"{{doctorApplicantEmail}}\"},\"doctor\":{\"address\":\"House 12, Road 5, Dhanmondi, Dhaka\",\"specialization\":\"Cardiology\",\"licenseNumber\":\"BMDC-{{$timestamp}}\",\"qualifications\":\"MBBS, FCPS (Cardiology)\",\"experienceYears\":8,\"bio\":\"Consultant cardiologist with 8 years of experience in interventional cardiology.\",\"consultationFee\":1000,\"contactNumber\":\"+8801700000099\"}}"
+                  "value": "{\"user\":{\"name\":\"Dr. Fatima\",\"email\":\"{{doctorApplicantEmail}}\"},\"doctor\":{\"address\":\"House 12, Road 5, Dhanmondi, Dhaka\",\"specialization\":\"Cardiology\",\"licenseNumber\":\"BMDC-{{$timestamp}}\",\"qualifications\":\"MBBS, FCPS (Cardiology)\",\"experienceYears\":8,\"bio\":\"Consultant cardiologist with 8 years of experience in interventional cardiology.\",\"consultationFee\":1000,\"contactNumber\":\"+8801700000099\"}}"
                 },
                 {
                   "key": "resume",
@@ -799,7 +834,7 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/api/v1/doctor/verify-doctor-email",
+              "raw": "{{baseUrl}}/api/v1/doctor/apply-as-doctor/verify-email",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -807,7 +842,8 @@
                 "api",
                 "v1",
                 "doctor",
-                "verify-doctor-email"
+                "apply-as-doctor",
+                "verify-email"
               ]
             },
             "description": "**Manual step**: paste the OTP emailed after Apply as doctor into the `otp` variable first.",
@@ -1018,7 +1054,7 @@
             "description": "Doctor only. Setting `consultationFee` here is required before **Book appointment** will work - `bookAppointment` rejects a doctor with no consultation fee set.",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"doctor\": {\n    \"address\": \"House 21, Road 9, Gulshan, Dhaka\",\n    \"bio\": \"General physician, seeded demo account.\",\n    \"consultationFee\": 800,\n    \"contactNumber\": \"+8801700000098\"\n  }\n}",
+              "raw": "{\n  \"address\": \"House 21, Road 9, Gulshan, Dhaka\",\n  \"bio\": \"General physician, seeded demo account.\",\n  \"consultationFee\": 800,\n  \"contactNumber\": \"+8801700000098\"\n}",
               "options": {
                 "raw": {
                   "language": "json"

@@ -6,7 +6,7 @@ import { ValidateRequest } from "../../middleware/validateRequest.js";
 import { DoctorController } from "./doctor.controller.js";
 import {
   ApproveDoctorValidationZodSchema,
-  UpdateProfileDoctorValidationZodSchema,
+  UpdateDoctorProfileValidationZodSchema,
 } from "./doctor.validation.js";
 
 const router = Router();
@@ -20,7 +20,10 @@ router.post(
   ]),
   DoctorController.ApplyAsDoctor,
 );
-router.post("/verify-doctor-email", DoctorController.verifyDoctorEmail);
+router.post(
+  "/apply-as-doctor/verify-email",
+  DoctorController.verifyDoctorEmail,
+);
 
 router.post(
   "/approve-doctor",
@@ -38,7 +41,7 @@ router.get(
 router.patch(
   "/update-my-profile",
   auth(Role.DOCTOR),
-  ValidateRequest(UpdateProfileDoctorValidationZodSchema),
+  ValidateRequest(UpdateDoctorProfileValidationZodSchema),
   DoctorController.updateDoctorProfile,
 );
 

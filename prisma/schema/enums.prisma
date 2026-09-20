@@ -34,14 +34,8 @@ enum PaymentStatus {
   UNPAID
   PAID
   FAILED
-  CANCELED
+  CANCELLED
   REFUNDED
-}
-
-enum PaymentGateway {
-  STRIPE
-  BKASH
-  SSLCOMMERZ
 }
 
 enum DoctorVerificationStatus {
