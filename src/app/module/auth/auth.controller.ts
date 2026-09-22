@@ -209,16 +209,8 @@ const resetPassword = catchAsync(async (req: Request, res: Response) => {
 });
 
 const logout = catchAsync(async (_req: Request, res: Response) => {
-  // clearCookie only works when the options match the ones the cookie was set
-  // with, so these mirror loginUser/verifyPatientEmail exactly.
-  const cookieOptions = {
-    httpOnly: true,
-    secure: config.node_env === "development" ? false : true,
-    sameSite: config.node_env === "development" ? "lax" : "none",
-  } as const;
-
-  res.clearCookie("accessToken", cookieOptions);
-  res.clearCookie("refreshToken", cookieOptions);
+  res.clearCookie("accessToken");
+  res.clearCookie("refreshToken");
 
   sendResponse(res, {
     statusCode: httpStatus.OK,
