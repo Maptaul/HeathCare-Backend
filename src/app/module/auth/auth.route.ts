@@ -47,6 +47,14 @@ router.post(
 );
 
 router.post(
+  "/resend-otp",
+
+  ValidateRequest(UserValidation.ResendOtpZodSchema),
+
+  AuthController.resendOtp,
+);
+
+router.post(
   "/login",
 
   ValidateRequest(UserValidation.LoginZodSchema),

@@ -4,7 +4,7 @@ const PatientRegistrationZodSchema = z.object({
   name: z
     .string("Not a string")
     .min(3, "Name must be at least 3 characters long")
-    .max(10, "Name must be at most 10 characters long"),
+    .max(50, "Name must be at most 50 characters long"),
   email: z.email("Not a valid email"),
   password: z
     .string("Not a string")
@@ -22,6 +22,10 @@ const PatientRegistrationZodSchema = z.object({
 const PatientEmailVerificationZodSchema = z.object({
   email: z.email("Not a valid email"),
   otp: z.string("Not a string").length(6, "OTP must be 6 digits long"),
+});
+
+const ResendOtpZodSchema = z.object({
+  email: z.email("Not a valid email"),
 });
 
 const LoginZodSchema = z.object({
@@ -54,6 +58,7 @@ const ResetPasswordZodSchema = z.object({
 export const UserValidation = {
   PatientRegistrationZodSchema,
   PatientEmailVerificationZodSchema,
+  ResendOtpZodSchema,
   LoginZodSchema,
   ForgotPasswordZodSchema,
   ResetPasswordZodSchema,

@@ -23,6 +23,7 @@ import type {
   ILoginUserPayload,
   IRegisterPatientPayload,
   IRequestUser,
+  IResendOtpPayload,
   IResetPasswordPayload,
   IVerifyEmailPayload,
 } from "./auth.interface.js";
@@ -51,6 +52,10 @@ const registerPatient = async (payload: IRegisterPatientPayload) => {
   // Generate OTP
   const otpKey = `patient-registration:otp:${email}`;
   const otpValue = crypto.randomInt(100000, 1000000).toString();
+
+  if (config.node_env === "development") {
+    console.log(`Generated OTP for ${email}: ${otpValue}`);
+  }
 
   await redisClient.set(otpKey, otpValue, {
     expiration: {
@@ -240,6 +245,64 @@ const verifyPatientEmail = async (payload: IVerifyEmailPayload) => {
     accessToken,
     refreshToken,
   };
+};
+
+const resendOtp = async (payload: IResendOtpPayload) => {
+  const email = payload.email.trim().toLowerCase();
+
+  // Registration data must still be pending in Redis
+  const patientRegistrationKey = `patient-registration:data:${email}`;
+  const redisPatientData = await redisClient.get(patientRegistrationKey);
+
+  if (!redisPatientData) {
+    throw new AppError(
+      httpStatus.BAD_REQUEST,
+      "Registration data not found or expired. Please register again.",
+      "",
+    );
+  }
+
+  const { name }: IRegisterPatientPayload = JSON.parse(redisPatientData);
+
+  const expirationSeconds = 60 * 5;
+
+  // Generate new OTP (overwrites the old one)
+  const otpKey = `patient-registration:otp:${email}`;
+  const otpValue = crypto.randomInt(100000, 1000000).toString();
+
+  if (config.node_env === "development") {
+    console.log(`Resent OTP for ${email}: ${otpValue}`);
+  }
+
+  await redisClient.set(otpKey, otpValue, {
+    expiration: {
+      type: "EX",
+      value: expirationSeconds,
+    },
+  });
+
+  // Extend registration data so it lives as long as the new OTP
+  await redisClient.expire(patientRegistrationKey, expirationSeconds);
+
+  // Send Email
+  const templatePath = path.join(
+    process.cwd(),
+    "src/app/templates/registration-user-otp.ejs",
+  );
+
+  const html = await ejs.renderFile(templatePath, {
+    name,
+    email,
+    otp: otpValue,
+    expirationTime: expirationSeconds / 60,
+  });
+
+  await transporter.sendMail({
+    from: config.email_sender,
+    to: email,
+    subject: "Patient Registration OTP",
+    html,
+  });
 };
 
 const loginUser = async (payload: ILoginUserPayload) => {
@@ -674,6 +737,7 @@ const resetPassword = async (payload: IResetPasswordPayload) => {
 export const AuthService = {
   registerPatient,
   verifyPatientEmail,
+  resendOtp,
   loginUser,
   getMe,
   refreshToken,
