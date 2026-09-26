@@ -152,7 +152,7 @@ const applyAsDoctor = async (
     name: payload.user.name,
     email: payload.user.email,
     otp: otpValue,
-    expirationMinutes: expirationSeconds / 60,
+    expirationTime: expirationSeconds / 60,
   };
 
   const html = await ejs.renderFile(templatePath, templateData);
