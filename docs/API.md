@@ -95,7 +95,7 @@ Additional filters specific to an endpoint (e.g. `status`, `doctorId`, `speciali
 
 ## File uploads
 
-Two endpoints accept `multipart/form-data`: `POST /doctor/apply-as-doctor` and `PATCH /user/profile-image`. Files are buffered in memory (`multer.memoryStorage()`, no size/type limit enforced by the server) and streamed to Cloudinary.
+Two endpoints accept `multipart/form-data`: `POST /doctor/apply-as-doctor` and `PATCH /user/profile-image`. Files are buffered in memory (`multer.memoryStorage()`, max 5MB per file; JPG/PNG/PDF/DOC/DOCX only, otherwise `400`) and streamed to Cloudinary.
 
 ## Errors you'll commonly see
 
@@ -360,8 +360,8 @@ Apply to become a doctor. Creates the `User` (role `DOCTOR`, random password, `n
 | Field | Type | Required | Notes |
 | --- | --- | --- | --- |
 | `data` | string (JSON) | yes | JSON-encoded object, shape below |
-| `resume` | file | no (server expects it but doesn't hard-require it) | single file |
-| `additionalFiles` | file[] | no | up to 10 files |
+| `resume` | file | no | single file |
+| `additionalFiles` | file[] | no | up to 5 files |
 
 `data` decodes to:
 
@@ -394,9 +394,9 @@ Apply to become a doctor. Creates the `User` (role `DOCTOR`, random password, `n
 | `doctor.consultationFee` | no | number ≥0 |
 | `doctor.contactNumber` | no | min 5 chars if present |
 
-**Response** `200` — the created `User` record including the nested `doctor`.
+**Response** `200` — the created `User` record (password omitted) including the nested `doctor`. If the OTP email fails, the application is still saved; use `/apply-as-doctor/resend-otp`.
 
-**Errors:** `409` if a user with that email already exists; `400` if `data` fails validation.
+**Errors:** `409` if the email or license number already exists; `400` if `data` is missing or fails validation (message lists the failing fields) or a file is rejected.
 
 ### POST /apply-as-doctor/verify-email
 
@@ -413,6 +413,22 @@ Verify the OTP sent during application. Sets `emailVerified: true` on the doctor
 **Response** `200` — the updated `User` (password omitted) including `doctor`.
 
 **Errors:** `404` no such doctor user; `400` already verified / OTP expired / invalid OTP.
+
+### POST /apply-as-doctor/resend-otp
+
+Send a fresh OTP (valid 60 minutes) to a doctor applicant whose email is not yet verified.
+
+**Auth:** none
+
+**Body**
+
+```json
+{ "email": "doctor@example.com" }
+```
+
+**Response** `200` — `data: null`.
+
+**Errors:** `404` no doctor application for that email; `400` already verified.
 
 ### POST /approve-doctor
 

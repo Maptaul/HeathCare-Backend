@@ -13,23 +13,31 @@ const ApplyAsDoctor = catchAsync(async (req: Request, res: Response) => {
   const resume = files?.["resume"] ? files["resume"][0] : null;
   const additionalFiles = files?.["additionalFiles"] || [];
 
-  const zodValidationResult = ApplyAsDoctorValidationZodSchema.safeParse(
-    JSON.parse(req.body.data),
-  );
+  let rawData: unknown;
+  try {
+    rawData = JSON.parse(req.body?.data);
+  } catch {
+    throw new AppError(
+      httpStatus.BAD_REQUEST,
+      "Application data is missing or not valid JSON",
+      "",
+    );
+  }
+
+  const zodValidationResult =
+    ApplyAsDoctorValidationZodSchema.safeParse(rawData);
   if (!zodValidationResult.success) {
-    throw new AppError(httpStatus.BAD_REQUEST, "Validation failed", "");
+    const details = zodValidationResult.error.issues
+      .map((issue) => `${issue.path.join(".")}: ${issue.message}`)
+      .join("; ");
+    throw new AppError(
+      httpStatus.BAD_REQUEST,
+      `Validation failed - ${details}`,
+      "",
+    );
   }
 
   const payload = zodValidationResult.data;
-
-  // if (!payload.success) {
-  //   return sendResponse(res, {
-  //     statusCode: httpStatus.BAD_REQUEST,
-  //     success: false,
-  //     message: "Validation failed",
-  //     data: payload.error,
-  //   });
-  // }
 
   const result = await DoctorServices.applyAsDoctor(
     payload,
@@ -52,6 +60,15 @@ const verifyDoctorEmail = catchAsync(async (req: Request, res: Response) => {
     success: true,
     message: "Doctor Email verified successfully",
     data: result,
+  });
+});
+const resendDoctorOtp = catchAsync(async (req: Request, res: Response) => {
+  await DoctorServices.resendDoctorOtp(req.body.email);
+  sendResponse(res, {
+    statusCode: httpStatus.OK,
+    success: true,
+    message: "OTP resent successfully",
+    data: null,
   });
 });
 const approveDoctor = catchAsync(async (req: Request, res: Response) => {
@@ -145,6 +162,7 @@ const getSingleDoctorPublicProfile = catchAsync(
 export const DoctorController = {
   ApplyAsDoctor,
   verifyDoctorEmail,
+  resendDoctorOtp,
   approveDoctor,
   getAllDoctors,
   updateDoctorProfile,

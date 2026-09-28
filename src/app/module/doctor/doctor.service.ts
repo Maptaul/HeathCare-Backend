@@ -26,120 +26,37 @@ import {
   IVerifyDoctorEmailPayload,
 } from "./doctor.interface.js";
 
-const applyAsDoctor = async (
-  payload: IApplyAsDoctorPayload,
-  resume: Express.Multer.File | null,
-  additionalFiles: Express.Multer.File[],
-) => {
-  const isUserExists = await prisma.user.findUnique({
-    where: {
-      email: payload.user.email,
-    },
-  });
-  if (isUserExists) {
-    throw new AppError(
-      httpStatus.CONFLICT,
-      "User already exists with this email",
-      "",
-    );
-  }
+const DOCTOR_OTP_EXPIRATION_SECONDS = 60 * 60;
 
-  const resumeUploadResult = await new Promise<UploadApiResponse>(
-    (resolve, reject) => {
-      cloudinary.uploader
-        .upload_stream(
-          {
-            resource_type: "auto",
-          },
-          async (error, result) => {
-            if (error) {
-              return reject(error);
-            }
-            if (!result) {
-              return reject(
-                new AppError(
-                  httpStatus.INTERNAL_SERVER_ERROR,
-                  "No result returned from Cloudinary",
-                  "",
-                ),
-              );
-            }
-            resolve(result);
-          },
-        )
-        .end(resume?.buffer);
-    },
-  );
-
-  const additionalFilesUploadResults = await Promise.all(
-    additionalFiles.map((file) => {
-      return new Promise<UploadApiResponse>((resolve, reject) => {
-        cloudinary.uploader
-          .upload_stream(
-            {
-              resource_type: "auto",
-            },
-            async (error, result) => {
-              if (error) {
-                return reject(error);
-              }
-              if (!result) {
-                return reject(
-                  new AppError(
-                    httpStatus.INTERNAL_SERVER_ERROR,
-                    "No result returned from Cloudinary",
-                    "",
-                  ),
-                );
-              }
-              resolve(result);
-            },
-          )
-          .end(file?.buffer);
-      });
-    }),
-  );
-
-  const randomDoctorPassword = Math.random().toString(36).slice(-8);
-  const hashedPassword = await bcrypt.hash(
-    randomDoctorPassword,
-    Number(config.bcrypt_salt_rounds),
-  );
-
-  const doctorApplication = await prisma.user.create({
-    data: {
-      ...payload.user,
-      password: hashedPassword,
-      role: Role.DOCTOR,
-      needPasswordChange: true,
-      doctor: {
-        create: {
-          name: payload.user.name,
-          email: payload.user.email,
-          ...payload.doctor,
-          resume: resumeUploadResult.secure_url,
-          resumePublicId: resumeUploadResult.public_id,
-          additionalFiles: additionalFilesUploadResults.map((file) => ({
-            url: file.secure_url,
-            publicId: file.public_id,
-          })),
-        },
-      },
-    },
-    include: {
-      doctor: true,
-    },
+const uploadToCloudinary = (file: Express.Multer.File) =>
+  new Promise<UploadApiResponse>((resolve, reject) => {
+    cloudinary.uploader
+      .upload_stream({ resource_type: "auto" }, (error, result) => {
+        if (error) {
+          return reject(error);
+        }
+        if (!result) {
+          return reject(
+            new AppError(
+              httpStatus.INTERNAL_SERVER_ERROR,
+              "No result returned from Cloudinary",
+              "",
+            ),
+          );
+        }
+        resolve(result);
+      })
+      .end(file.buffer);
   });
 
-  const expirationSeconds = 60 * 60;
-  const otpKey = `doctor-application:otp:${payload.user.email}`;
-
+const sendDoctorApplicationOtp = async (name: string, email: string) => {
+  const otpKey = `doctor-application:otp:${email}`;
   const otpValue = crypto.randomInt(100000, 1000000).toString();
 
   await redisClient.set(otpKey, otpValue, {
     expiration: {
       type: "EX",
-      value: expirationSeconds,
+      value: DOCTOR_OTP_EXPIRATION_SECONDS,
     },
   });
 
@@ -148,23 +65,136 @@ const applyAsDoctor = async (
     "src/app/templates/registration-user-otp.ejs",
   );
 
-  const templateData = {
-    name: payload.user.name,
-    email: payload.user.email,
+  const html = await ejs.renderFile(templatePath, {
+    name,
+    email,
     otp: otpValue,
-    expirationTime: expirationSeconds / 60,
-  };
-
-  const html = await ejs.renderFile(templatePath, templateData);
+    expirationTime: DOCTOR_OTP_EXPIRATION_SECONDS / 60,
+  });
 
   await transporter.sendMail({
     from: config.email_sender,
-    to: payload.user.email,
+    to: email,
     subject: "Doctor Application OTP",
     html,
   });
+};
+
+const applyAsDoctor = async (
+  payload: IApplyAsDoctorPayload,
+  resume: Express.Multer.File | null,
+  additionalFiles: Express.Multer.File[],
+) => {
+  const { email, name } = payload.user;
+
+  const existingUser = await prisma.user.findUnique({
+    where: { email },
+  });
+  if (existingUser) {
+    const isPendingDoctor =
+      existingUser.role === Role.DOCTOR && !existingUser.emailVerified;
+    throw new AppError(
+      httpStatus.CONFLICT,
+      isPendingDoctor
+        ? "An application with this email is awaiting email verification. Please verify your email or resend the OTP."
+        : "User already exists with this email",
+      "",
+    );
+  }
+
+  const existingLicense = await prisma.doctor.findUnique({
+    where: { licenseNumber: payload.doctor.licenseNumber },
+  });
+  if (existingLicense) {
+    throw new AppError(
+      httpStatus.CONFLICT,
+      "An application with this license number already exists",
+      "",
+    );
+  }
+
+  const resumeUploadResult = resume ? await uploadToCloudinary(resume) : null;
+  const additionalFilesUploadResults = await Promise.all(
+    additionalFiles.map(uploadToCloudinary),
+  );
+
+  // Doctor sets their own password via forgot-password after approval
+  const randomDoctorPassword = crypto.randomBytes(16).toString("hex");
+  const hashedPassword = await bcrypt.hash(
+    randomDoctorPassword,
+    Number(config.bcrypt_salt_rounds),
+  );
+
+  let doctorApplication;
+  try {
+    doctorApplication = await prisma.user.create({
+      data: {
+        ...payload.user,
+        password: hashedPassword,
+        role: Role.DOCTOR,
+        needPasswordChange: true,
+        doctor: {
+          create: {
+            name,
+            email,
+            ...payload.doctor,
+            resume: resumeUploadResult?.secure_url,
+            resumePublicId: resumeUploadResult?.public_id,
+            additionalFiles: additionalFilesUploadResults.map((file) => ({
+              url: file.secure_url,
+              publicId: file.public_id,
+            })),
+          },
+        },
+      },
+      omit: { password: true },
+      include: {
+        doctor: true,
+      },
+    });
+  } catch (error) {
+    // Don't leave orphaned uploads behind when the DB write fails
+    const uploads = [resumeUploadResult, ...additionalFilesUploadResults];
+    await Promise.allSettled(
+      uploads
+        .filter((upload): upload is UploadApiResponse => upload !== null)
+        .map((upload) =>
+          cloudinary.uploader.destroy(upload.public_id, {
+            resource_type: upload.resource_type,
+          }),
+        ),
+    );
+    throw error;
+  }
+
+  try {
+    await sendDoctorApplicationOtp(name, email);
+  } catch (error) {
+    // Application is already saved; the doctor can use "Resend" on the verify page
+    console.error("Failed to send doctor application OTP", error);
+  }
 
   return doctorApplication;
+};
+
+const resendDoctorOtp = async (rawEmail: string) => {
+  const email = rawEmail.trim().toLowerCase();
+
+  const existingUser = await prisma.user.findUnique({
+    where: { email },
+  });
+  if (!existingUser || existingUser.role !== Role.DOCTOR) {
+    throw new AppError(
+      httpStatus.NOT_FOUND,
+      "Doctor application not found",
+      "",
+    );
+  }
+  if (existingUser.emailVerified) {
+    throw new AppError(httpStatus.BAD_REQUEST, "Email already verified", "");
+  }
+
+  await sendDoctorApplicationOtp(existingUser.name, email);
 };
 
 const verifyDoctorEmail = async (payload: IVerifyDoctorEmailPayload) => {
@@ -665,6 +695,7 @@ const getSingleDoctorPublicProfile = async (doctorId: string) => {
 export const DoctorServices = {
   applyAsDoctor,
   verifyDoctorEmail,
+  resendDoctorOtp,
   approveDoctor,
   getAllDoctors,
   getSingleDoctorPublicProfile,

@@ -52,6 +52,10 @@ export const VerifyDoctorEmailValidationZodSchema = z.object({
   otp: z.string("Not a string").length(6, "OTP must be 6 digits long"),
 });
 
+export const ResendDoctorOtpValidationZodSchema = z.object({
+  email: z.email("Not a valid email"),
+});
+
 export const ApproveDoctorValidationZodSchema = z.object({
   doctorId: z.string().trim().min(1, "Doctor ID is required"),
   verificationStatus: z.enum(

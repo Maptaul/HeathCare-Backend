@@ -6,6 +6,7 @@ import { ValidateRequest } from "../../middleware/validateRequest.js";
 import { DoctorController } from "./doctor.controller.js";
 import {
   ApproveDoctorValidationZodSchema,
+  ResendDoctorOtpValidationZodSchema,
   UpdateDoctorProfileValidationZodSchema,
   VerifyDoctorEmailValidationZodSchema,
 } from "./doctor.validation.js";
@@ -14,10 +15,9 @@ const router = Router();
 
 router.post(
   "/apply-as-doctor",
-  // ValidateRequest(UserValidation.ResetPasswordZodSchema),
   upload.fields([
     { name: "resume", maxCount: 1 },
-    { name: "additionalFiles", maxCount: 10 },
+    { name: "additionalFiles", maxCount: 5 },
   ]),
   DoctorController.ApplyAsDoctor,
 );
@@ -25,6 +25,11 @@ router.post(
   "/apply-as-doctor/verify-email",
   ValidateRequest(VerifyDoctorEmailValidationZodSchema),
   DoctorController.verifyDoctorEmail,
+);
+router.post(
+  "/apply-as-doctor/resend-otp",
+  ValidateRequest(ResendDoctorOtpValidationZodSchema),
+  DoctorController.resendDoctorOtp,
 );
 
 router.post(

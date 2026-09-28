@@ -1,7 +1,9 @@
 import type { NextFunction, Request, Response } from "express";
 import httpStatus from "http-status";
+import { MulterError } from "multer";
 import { Prisma } from "../../generated/prisma/client.js";
 import config from "../config/index.js";
+import { MAX_FILE_SIZE_IN_MB } from "../lib/multer.js";
 import { AppError } from "../utils/appError.js";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -47,6 +49,12 @@ export const globalErrorHandler = async (
   } else if (err instanceof Prisma.PrismaClientUnknownRequestError) {
     statusCode = httpStatus.INTERNAL_SERVER_ERROR;
     errorMessage = "Error occurred during query execution";
+  } else if (err instanceof MulterError) {
+    statusCode = httpStatus.BAD_REQUEST;
+    errorMessage =
+      err.code === "LIMIT_FILE_SIZE"
+        ? `File size exceeds ${MAX_FILE_SIZE_IN_MB}MB`
+        : err.message;
   } else if (err instanceof AppError) {
     errorMessage = err.message;
     statusCode = err.statusCode;
