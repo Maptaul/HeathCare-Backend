@@ -333,10 +333,9 @@ const loginUser = async (payload: ILoginUserPayload) => {
     );
   }
 
-  const isPasswordMatched = await bcrypt.compare(
-    password,
-    user.password as string,
-  );
+  // Unapproved doctors have no password yet
+  const isPasswordMatched =
+    user.password !== null && (await bcrypt.compare(password, user.password));
 
   if (!isPasswordMatched) {
     throw new AppError(httpStatus.UNAUTHORIZED, "Invalid credentials", "");

@@ -23,6 +23,13 @@
 								<p style="margin:0 0 18px; font-size:16px; line-height:1.7;">Hello <%= typeof doctorName !== 'undefined' ? doctorName : 'Doctor' %>,</p>
 								<p style="margin:0 0 18px; font-size:16px; line-height:1.7;">We are pleased to let you know that your doctor application has been reviewed and <strong style="color:#0f766e;">approved</strong>.</p>
 								<p style="margin:0 0 28px; font-size:16px; line-height:1.7;">You can now sign in to complete your profile, manage appointments, and start connecting with patients.</p>
+								<% if (typeof password !== 'undefined' && password) { %>
+								<div style="margin:0 0 28px; padding:18px 20px; border-radius:10px; background:#f0fdfa; border:1px solid #99f6e4; font-size:15px; line-height:1.8;">
+									<div><strong>Email:</strong> <%= email %></div>
+									<div><strong>Temporary password:</strong> <code style="font-size:16px; color:#0f766e;"><%= password %></code></div>
+									<div style="margin-top:8px; font-size:13px; color:#65758b;">You will be asked to change this password after your first login.</div>
+								</div>
+								<% } %>
 								<table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin:0 auto 30px;">
 									<tr>
 										<td align="center" style="border-radius:8px; background:#0f766e;">

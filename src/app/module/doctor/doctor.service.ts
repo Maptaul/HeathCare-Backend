@@ -19,6 +19,7 @@ import { prisma } from "../../lib/prisma.js";
 import { redisClient } from "../../lib/redis.js";
 import { RequestUser } from "../../middleware/checkAuth.js";
 import { AppError } from "../../utils/appError.js";
+import generateRandomPassword from "../../utils/randomPassword.js";
 import {
   IApplyAsDoctorPayload,
   IApproveDoctorPayload,
@@ -118,19 +119,12 @@ const applyAsDoctor = async (
     additionalFiles.map(uploadToCloudinary),
   );
 
-  // Doctor sets their own password via forgot-password after approval
-  const randomDoctorPassword = crypto.randomBytes(16).toString("hex");
-  const hashedPassword = await bcrypt.hash(
-    randomDoctorPassword,
-    Number(config.bcrypt_salt_rounds),
-  );
-
+  // Password is generated and emailed on approval (see approveDoctor)
   let doctorApplication;
   try {
     doctorApplication = await prisma.user.create({
       data: {
         ...payload.user,
-        password: hashedPassword,
         role: Role.DOCTOR,
         needPasswordChange: true,
         doctor: {
@@ -278,6 +272,21 @@ const approveDoctor = async (
     );
   }
 
+  const isApproved = verificationStatus === DoctorVerificationStatus.APPROVED;
+
+  const randomDoctorPassword = isApproved
+    ? generateRandomPassword()
+    : undefined;
+
+  if (config.node_env === "development" && randomDoctorPassword) {
+    console.log(
+      `Generated password for doctor ${existingDoctor.name} (${existingDoctor.email}): ${randomDoctorPassword}`,
+    );
+  }
+  const hashedPassword = randomDoctorPassword
+    ? await bcrypt.hash(randomDoctorPassword, Number(config.bcrypt_salt_rounds))
+    : undefined;
+
   const updatedDoctor = await prisma.doctor.update({
     where: { id: doctorId },
     data: {
@@ -288,10 +297,12 @@ const approveDoctor = async (
           : null,
       reviewedBy: reviewer.userId,
       reviewedAt: new Date(),
+      ...(hashedPassword
+        ? { user: { update: { password: hashedPassword } } }
+        : {}),
     },
   });
 
-  const isApproved = verificationStatus === DoctorVerificationStatus.APPROVED;
   const templatePath = path.join(
     process.cwd(),
     `src/app/templates/${isApproved ? "doctor-application-approved.ejs" : "doctor-application-rejected.ejs"}`,
@@ -299,7 +310,10 @@ const approveDoctor = async (
 
   const templateData = {
     name: updatedDoctor.name,
+    doctorName: updatedDoctor.name,
     reason: updatedDoctor.rejectionReason,
+    email: updatedDoctor.email,
+    password: randomDoctorPassword,
   };
 
   const html = await ejs.renderFile(templatePath, templateData);
