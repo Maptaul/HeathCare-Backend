@@ -7,6 +7,7 @@
         "dev": "tsx watch src/server.ts",
         "build": "prisma generate && tsup",
         "start": "tsx src/server.ts",
+        "seed:test": "tsx src/scripts/seed-test-data.ts",
         "postinstall": "prisma generate",
         "test": "echo \"Error: no test specified\" && exit 1",
         "format:check": "pnpx @biomejs/biome format ./src",
