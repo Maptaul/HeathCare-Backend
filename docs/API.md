@@ -741,7 +741,7 @@ Re-initiate payment for an appointment still stuck in `PENDING` (e.g. the first 
 
 ### GET /book-appointment/payment/callback
 
-bKash redirects here after checkout. **Not meant to be called directly by API clients** — it processes the payment result then `302`-redirects the browser to the frontend (`${FRONTEND_URL}/dashboard/my-appointments?status=success|failure|cancel`).
+bKash redirects here after checkout. **Not meant to be called directly by API clients** — it processes the payment result then `302`-redirects the browser to the frontend (`${FRONTEND_URL}/patient/my-appointments?status=success|failure|cancel`).
 
 **Auth:** none
 

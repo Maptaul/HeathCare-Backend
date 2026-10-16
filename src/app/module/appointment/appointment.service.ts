@@ -404,7 +404,7 @@ const bookAppointmentCallback = async (query: Record<string, any>) => {
       if (appointment.status !== AppointmentStatus.PENDING) {
         return {
           executePaymentResult,
-          redirectUrl: `${config.frontend_url}/dashboard/my-appointments?status=success`,
+          redirectUrl: `${config.frontend_url}/patient/my-appointments?status=success`,
         };
       }
 
@@ -472,7 +472,7 @@ const bookAppointmentCallback = async (query: Record<string, any>) => {
           transactionID: executePaymentResult.trxID,
           paidAt: executePaymentResult.paymentExecuteTime,
         },
-        redirectUrl: `${config.frontend_url}/dashboard/my-appointments?status=success`,
+        redirectUrl: `${config.frontend_url}/patient/my-appointments?status=success`,
       };
     } else if (status === "failure") {
       await tx.payment.update({
@@ -485,7 +485,7 @@ const bookAppointmentCallback = async (query: Record<string, any>) => {
         },
       });
       return {
-        redirectUrl: `${config.frontend_url}/dashboard/my-appointments?status=failure`,
+        redirectUrl: `${config.frontend_url}/patient/my-appointments?status=failure`,
       };
     } else if (status === "cancel") {
       await tx.payment.update({
@@ -499,12 +499,12 @@ const bookAppointmentCallback = async (query: Record<string, any>) => {
       });
       return {
         executePaymentResult,
-        redirectUrl: `${config.frontend_url}/dashboard/my-appointments?status=cancel`,
+        redirectUrl: `${config.frontend_url}/patient/my-appointments?status=cancel`,
       };
     } else {
       return {
         executePaymentResult,
-        redirectUrl: `${config.frontend_url}/dashboard/my-appointments?error=payment-failed`,
+        redirectUrl: `${config.frontend_url}/patient/my-appointments?error=payment-failed`,
       };
     }
   },

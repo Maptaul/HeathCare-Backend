@@ -2,6 +2,7 @@
  * Seeds test data for manual testing of the whole app.
  *   pnpm seed:test          -> insert (aborts if seed data already exists)
  *   pnpm seed:test --reset  -> delete previous seed data, then insert fresh
+ *   pnpm seed:test --today  -> bookable schedule today for every approved doctor
  *   pnpm seed:test --doctor someone@mail.com
  *                           -> add schedules + appointments for an existing,
  *                              approved doctor (needs the base seed patients)
@@ -312,8 +313,59 @@ const seedForDoctor = async (email: string) => {
   );
 };
 
+// Booking only works for a published schedule that is today and not started
+// yet, so give every approved doctor (seeded or real) one from the next full
+// hour until midnight. Unbooked seed schedules for today are replaced; doctors
+// with their own schedule today are left alone (one schedule per day).
+const seedTodayForAllDoctors = async () => {
+  const now = new Date();
+  const startDateTime = addMinutes(startOfDay(now), (now.getHours() + 1) * 60);
+  const endDateTime = addDays(startOfDay(now), 1);
+  const totalSlots = slotsBetween(startDateTime, endDateTime);
+  if (totalSlots < 1) {
+    throw new Error("Too late today to create a bookable schedule, try after midnight");
+  }
+  const today = { gte: startOfDay(now), lt: endDateTime };
+
+  const { count: replaced } = await prisma.schedule.deleteMany({
+    where: {
+      meetingLink: { startsWith: SEED_LINK },
+      startDateTime: today,
+      appointments: { none: {} },
+    },
+  });
+
+  const doctors = await prisma.doctor.findMany({
+    where: {
+      verificationStatus: DoctorVerificationStatus.APPROVED,
+      isDeleted: false,
+      schedules: { none: { isDeleted: false, startDateTime: today } },
+    },
+    select: { id: true },
+  });
+
+  const { count } = await prisma.schedule.createMany({
+    data: doctors.map((d, i) => ({
+      doctorId: d.id,
+      startDateTime,
+      endDateTime,
+      totalSlots,
+      availableSlots: totalSlots,
+      meetingLink: `${SEED_LINK}today-${i + 1}`,
+      status: ScheduleStatus.PUBLISHED,
+    })),
+  });
+
+  console.log(
+    `Replaced ${replaced} stale seed schedules. Created ${count} bookable schedules ` +
+      `for today (${startDateTime.toLocaleTimeString()} - midnight, ${totalSlots} slots each).`,
+  );
+};
+
 const main = async () => {
   const seedUsers = { email: { endsWith: SEED_DOMAIN } };
+
+  if (process.argv.includes("--today")) return seedTodayForAllDoctors();
 
   const doctorFlag = process.argv.indexOf("--doctor");
   if (doctorFlag !== -1) {

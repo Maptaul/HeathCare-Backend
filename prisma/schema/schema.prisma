@@ -7,12 +7,12 @@
 generator client {
   provider            = "prisma-client"
   output              = "../../src/generated/prisma"
+  moduleFormat = "cjs"
   // Vercel's Node.js runtime runs the compiled output directly under native
   // Node ESM (no bundler), which requires explicit extensions on relative
   // imports. Without this, generator defaults to no extension based on this
   // project's tsconfig `moduleResolution: "bundler"` (correct for local
   // tsup/tsx, but unresolvable at Vercel runtime).
-  importFileExtension = "js"
 }
 
 datasource db {
